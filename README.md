@@ -5,6 +5,10 @@
 Obsidian Vault Dock adds a panel with tiles for your registered Obsidian vaults.
 Click a tile to open its vault or bring its window into focus.
 
+|                                   With labels                                   |                               Without labels                                |
+| :-----------------------------------------------------------------------------: | :-------------------------------------------------------------------------: |
+| ![Vault Dock with vault names below the tiles](docs/media/dock-with-labels.png) | ![Vault Dock with compact square tiles](docs/media/dock-without-labels.png) |
+
 **Requirements** · Obsidian Desktop 1.15.0 or later.
 
 **Interface languages** · English · Русский · Қазақша · Беларуская · O‘zbekcha ·
