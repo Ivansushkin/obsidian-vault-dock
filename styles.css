@@ -33,6 +33,56 @@
 	scroll-padding: var(--size-4-1);
 }
 
+.vault-dock.vault-dock-mobile {
+	--vault-switcher-picture-size: calc(
+		var(--size-4-9) * var(--vault-switcher-tile-scale) * 1.2
+	);
+
+	order: var(--vault-profile-order);
+	width: 100%;
+	box-sizing: border-box;
+}
+
+.vault-dock-mobile .vault-dock-tiles {
+	padding-block: var(--size-4-2);
+}
+
+.vault-dock.vault-dock-mobile[hidden] {
+	display: none;
+}
+
+.vault-dock-mobile
+	.vault-dock-tiles:not(.vault-dock-hide-labels)
+	.vault-dock-picture {
+	display: none;
+}
+
+.vault-dock-mobile
+	.vault-dock-tiles:not(.vault-dock-hide-labels)
+	button.vault-dock-tile {
+	position: relative;
+	justify-content: center;
+	width: calc(2 * var(--vault-switcher-picture-size) + var(--size-4-1));
+	min-height: var(--vault-switcher-picture-size);
+	padding-block: 0;
+}
+
+.vault-dock-mobile
+	.vault-dock-tiles:not(.vault-dock-hide-labels)
+	.vault-dock-tile
+	+ .vault-dock-tile::before {
+	position: absolute;
+	inset-block: var(--size-4-1);
+	inset-inline-start: calc(var(--size-4-1) / -2);
+	border-inline-start: var(--divider-width) solid var(--divider-color);
+	pointer-events: none;
+	content: "";
+}
+
+.vault-dock-mobile .vault-dock-tiles.vault-dock-hide-labels {
+	--vault-switcher-picture-radius: calc(var(--radius-s) + var(--size-4-2));
+}
+
 .vault-dock:is([data-position="left"], [data-position="right"]) {
 	align-items: stretch;
 	min-height: 0;
@@ -280,6 +330,10 @@ body.is-translucent:not(.is-fullscreen) .vault-dock::before {
 	text-align: center;
 	overflow-wrap: anywhere;
 	white-space: normal;
+}
+
+.vault-dock-mobile .vault-dock-label {
+	font-size: calc(var(--font-ui-smaller) * var(--vault-switcher-tile-scale));
 }
 
 .vault-dock .vault-dock-hide-labels button.vault-dock-tile {

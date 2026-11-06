@@ -2,6 +2,8 @@
 
 ## 1.0.0
 
+- Added a mobile dock for iOS and Android that automatically follows
+  Obsidian’s built-in vault list.
 - Renamed the plugin to Vault Dock for the Obsidian Community directory.
 - Documented how Vault Dock uses the local vault registry and stores tile
   images and settings.

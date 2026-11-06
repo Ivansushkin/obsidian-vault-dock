@@ -1,9 +1,10 @@
-import { getLanguage, Menu, Notice, Plugin } from "obsidian";
+import { getLanguage, Menu, Notice, Platform, Plugin } from "obsidian";
 import { Bar, mountBar } from "./bar";
 import { DEFAULT_BAR_POSITION } from "./bar-position";
 import { connectDesktop, type Desktop, type RegisteredVault } from "./desktop";
 import { Handoff } from "./handoff";
 import { getMessages, type Translate } from "./i18n";
+import { startMobileDock } from "./mobile";
 import { watchNativeVaultMenu } from "./native-vault-menu";
 import { SettingsStore, type SettingsSnapshot } from "./settings-store";
 import { SwitcherSettingsTab } from "./settings-tab";
@@ -13,7 +14,11 @@ export default class ObsidianVaultDockPlugin extends Plugin {
 	private disposed = false;
 	private pending = false;
 
-	onload(): void {
+	onload(): void | Promise<void> {
+		if (Platform.isMobileApp) {
+			return startMobileDock(this);
+		}
+
 		let messages = getMessages("system", getLanguage());
 		const t: Translate = (key) => messages[key];
 		const workspace = this.app.workspace;

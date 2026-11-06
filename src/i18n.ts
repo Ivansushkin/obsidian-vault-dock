@@ -24,6 +24,7 @@ export function isLanguagePreference(
 }
 
 const en = {
+	mobileSwitchFailed: "Could not open the vault.",
 	generalSettings: "General",
 	language: "Interface language",
 	languageDescription:
@@ -95,6 +96,7 @@ export type Translate = <Key extends keyof Messages>(key: Key) => Messages[Key];
 const messages: Record<Language, Messages> = {
 	en,
 	ru: {
+		mobileSwitchFailed: "Не удалось открыть хранилище.",
 		generalSettings: "Общие",
 		language: "Язык интерфейса",
 		languageDescription:
@@ -167,6 +169,7 @@ const messages: Record<Language, Messages> = {
 			"Не удалось обновить картинку хранилища. Попробуйте снова.",
 	},
 	kk: {
+		mobileSwitchFailed: "Хранилищені ашу мүмкін болмады.",
 		generalSettings: "Жалпы",
 		language: "Интерфейс тілі",
 		languageDescription:
@@ -239,6 +242,7 @@ const messages: Record<Language, Messages> = {
 			"Қойма суретін жаңарту мүмкін болмады. Қайталап көріңіз.",
 	},
 	be: {
+		mobileSwitchFailed: "Не ўдалося адкрыць сховішча.",
 		generalSettings: "Агульныя",
 		language: "Мова інтэрфейсу",
 		languageDescription:
@@ -310,6 +314,7 @@ const messages: Record<Language, Messages> = {
 			"Не ўдалося абнавіць выяву сховішча. Паспрабуйце зноў.",
 	},
 	uz: {
+		mobileSwitchFailed: "Omborni ochib bo‘lmadi.",
 		generalSettings: "Umumiy",
 		language: "Interfeys tili",
 		languageDescription:
@@ -383,6 +388,7 @@ const messages: Record<Language, Messages> = {
 			"Ombor rasmini yangilab bo‘lmadi. Qayta urinib ko‘ring.",
 	},
 	zh: {
+		mobileSwitchFailed: "无法打开仓库。",
 		generalSettings: "常规",
 		language: "界面语言",
 		languageDescription:
@@ -446,6 +452,7 @@ const messages: Record<Language, Messages> = {
 		saveImageFailed: "无法更新仓库图标。请重试。",
 	},
 	"zh-TW": {
+		mobileSwitchFailed: "無法開啟儲存庫。",
 		generalSettings: "一般",
 		language: "介面語言",
 		languageDescription:
@@ -510,6 +517,7 @@ const messages: Record<Language, Messages> = {
 		saveImageFailed: "無法更新儲存庫圖示。請再試一次。",
 	},
 	ja: {
+		mobileSwitchFailed: "保管庫を開けませんでした。",
 		generalSettings: "一般",
 		language: "表示言語",
 		languageDescription:

@@ -6,8 +6,8 @@ import type { Translate } from "./i18n";
 import { PlaceholderColorModal } from "./placeholder-color-modal";
 import type { PlaceholderColors } from "./placeholder-colors";
 import { IMAGE_TYPES, MAX_IMAGE_SIZE } from "./settings-store";
+import { createTile, getInitials, showInitials } from "./tile";
 
-const nameSegments = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 const positionItems = [
 	["top", "barTop"],
 	["bottom", "barBottom"],
@@ -77,16 +77,6 @@ export function mountBar(
 
 type TileTarget = { id: string; scopeRevision: number };
 type TilePicture = { image: HTMLImageElement; size?: ResizeObserverSize };
-
-/** Use up to two letters, or the first two graphemes in names without letters. */
-function getInitials(name: string): string {
-	const characters = Array.from(
-		nameSegments.segment(name.trim()),
-		({ segment }) => segment,
-	);
-	const letters = characters.filter((character) => /\p{L}/u.test(character));
-	return (letters.length ? letters : characters).slice(0, 2).join("");
-}
 
 /** Check whether a picture can be drawn as a single frame. */
 async function isStillImage(
@@ -220,15 +210,11 @@ export class Bar {
 		let focusTarget: HTMLButtonElement | undefined;
 
 		for (const vault of vaults) {
-			const tile = this.tiles.createEl("button", {
-				cls: "vault-dock-tile",
-				attr: {
-					type: "button",
-					title: vault.path,
-					"aria-label": vault.name,
-				},
-			});
-			tile.dataset.vaultId = vault.id;
+			const { tile, picture } = createTile(
+				this.tiles,
+				vault,
+				this.onSelect,
+			);
 			tile.disabled = this.pending;
 			if (vault.id === activeId) {
 				tile.setAttribute("aria-current", "true");
@@ -236,7 +222,6 @@ export class Bar {
 			if (vault.id === focused) {
 				focusTarget = tile;
 			}
-			const picture = tile.createSpan("vault-dock-picture");
 			const image = images.get(vault.id);
 			const colors = placeholderColors?.get(vault.id);
 			if (image) {
@@ -244,18 +229,12 @@ export class Bar {
 				nextUrls.set(image, url);
 				void this.renderPicture(picture, url, image);
 			} else {
-				picture.addClass("vault-dock-initials");
-				picture.textContent = getInitials(vault.name);
+				showInitials(picture, vault.name);
 				if (colors) {
 					picture.style.backgroundColor = colors.background;
 					picture.style.color = colors.text;
 				}
 			}
-			tile.createSpan({
-				cls: "vault-dock-label",
-				text: vault.name,
-			});
-			tile.addEventListener("click", () => this.onSelect(vault.id));
 			tile.addEventListener("contextmenu", (event) => {
 				this.showImageMenu(
 					event,

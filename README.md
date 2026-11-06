@@ -2,21 +2,22 @@
 
 [Русский](README_RU.md)
 
-Vault Dock automatically adds a tile for each registered Obsidian vault.
-Click a tile to open its vault or bring its window into focus.
+Vault Dock gives you a panel of tiles for opening Obsidian vaults. On desktop,
+it automatically adds a tile for each registered vault and can bring an
+existing window into focus.
 
 |                                   With labels                                   |                               Without labels                                |
 | :-----------------------------------------------------------------------------: | :-------------------------------------------------------------------------: |
 | ![Vault Dock with vault names below the tiles](docs/media/dock-with-labels.png) | ![Vault Dock with compact square tiles](docs/media/dock-without-labels.png) |
 
-**Requirements** · Obsidian Desktop 1.15.0 or later.
+**Requirements** · Obsidian 1.15.0 or later on desktop, iOS, and Android.
 
 **Interface languages** · English · Русский · Қазақша · Беларуская · O‘zbekcha ·
 简体中文 · 繁體中文 · 日本語. The plugin follows Obsidian’s language by default
 and uses English if that language is unavailable. You can choose a language in
 the plugin settings.
 
-## Features
+## Desktop features
 
 - Place the bar below the left sidebar tabs (default), above Obsidian’s built-in
   vault switcher, or along the left or right edge of the workspace. The vertical
@@ -50,7 +51,7 @@ every vault first. Remove its old installation folder after installing and
 enabling `vault-dock` in each vault. The plugin uses the existing settings
 and tile images from the same Obsidian profile.
 
-## First switch
+## Switching on desktop
 
 Install and enable the plugin in two vaults, then click the other vault’s tile
 to switch. Use **Switching mode** in the plugin settings to choose how the
@@ -69,22 +70,32 @@ In **Hide current window** mode, the current window closes if the plugin is
 disabled or missing in the destination vault. When opening a closed vault,
 Obsidian may briefly show its window at its previous position.
 
-## Shared settings
+## Switching on mobile
+
+Vault Dock automatically shows the vaults from Obsidian’s built-in switcher
+in the left sidebar. Tap a tile to switch. Enable Vault Dock in each vault
+where you want the panel to appear.
+
+You can adjust the tile size, labels, and language in each vault. Obsidian
+handles the switch and the workspace state.
+
+## Shared desktop settings
 
 The switching mode and tile images are shared across the Obsidian profile by
 default. Turn off **Share settings across vaults** to configure them separately.
 Turning it back on makes the current vault’s mode and images the shared settings.
 
-The interface language, bar position, tile size, label visibility, and
-tile colors always apply across the profile.
+The desktop interface language, bar position, tile size, label visibility,
+and tile colors always apply across the profile.
 
 ## Local data
 
 Vault Dock uses Obsidian's desktop vault registry to read the IDs and paths of
 registered vaults and open their windows. When you choose a tile image, the
 plugin reads that file, which can be outside your vaults. It stores a copy of
-the image and the dock settings in the local Obsidian profile. The plugin runs
-offline.
+the image and the dock settings in the local Obsidian profile. On mobile it
+saves appearance settings in each vault’s plugin data. The automatically
+discovered list stays in memory. The plugin runs offline.
 
 ## Development
 
