@@ -1,9 +1,10 @@
-import { getLanguage, Notice, Plugin } from "obsidian";
+import { getLanguage, Menu, Notice, Plugin } from "obsidian";
 import { Bar, mountBar } from "./bar";
 import { DEFAULT_BAR_POSITION } from "./bar-position";
 import { connectDesktop, type Desktop, type RegisteredVault } from "./desktop";
 import { Handoff } from "./handoff";
 import { getMessages, type Translate } from "./i18n";
+import { watchNativeVaultMenu } from "./native-vault-menu";
 import { SettingsStore, type SettingsSnapshot } from "./settings-store";
 import { SwitcherSettingsTab } from "./settings-tab";
 
@@ -229,6 +230,28 @@ export default class ObsidianVaultDockPlugin extends Plugin {
 			store.dispose();
 			bar.dispose();
 		});
+		this.register(
+			watchNativeVaultMenu(Menu, container.ownerDocument, desktop, {
+				readMode: () => settings?.mode,
+				setMode: (mode) =>
+					void settingsTab.setControlValue("mode", mode),
+				selectVault: (path) => {
+					try {
+						const target = desktop
+							.list()
+							.find((vault) => vault.path === path);
+						if (target) {
+							void select(target.id);
+						} else {
+							new Notice(t("switchFailed"));
+						}
+					} catch {
+						new Notice(t("registryUnavailable"));
+					}
+				},
+				t,
+			}),
+		);
 		this.registerDomEvent(
 			win,
 			"storage",

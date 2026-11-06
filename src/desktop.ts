@@ -43,7 +43,7 @@ type ElectronShell = { openExternal(url: string): Promise<void> };
 type DesktopWindow = Window & {
 	electron?: {
 		ipcRenderer?: {
-			sendSync(channel: string, ...args: unknown[]): unknown;
+			sendSync: (channel: string, ...args: unknown[]) => unknown;
 		};
 		remote?: {
 			BrowserWindow?: {
@@ -167,6 +167,10 @@ export type Desktop = {
 		expires: number,
 		signal: AbortSignal,
 	): Promise<number | undefined>;
+	runNativeVaultMenuAction(
+		action: () => void,
+		select: (path: string) => void,
+	): void;
 	open(target: RegisteredVault): void;
 	openOrFocus(target: RegisteredVault): Promise<void>;
 	isReadyWindow(id: number, bounds: Bounds, allowHidden?: boolean): boolean;
@@ -383,6 +387,41 @@ export function connectDesktop(win: DesktopWindow): Desktop | undefined {
 				signal.addEventListener("abort", cancel, { once: true });
 				poll();
 			});
+		},
+		runNativeVaultMenuAction(action, select) {
+			// The built-in item sends this IPC synchronously during its callback.
+			const sendSync = ipc.sendSync;
+			const ownSendSync = Object.hasOwn(ipc, "sendSync");
+			let path: string | undefined;
+			try {
+				ipc.sendSync = (channel, ...args) => {
+					if (
+						channel === "vault-open" &&
+						typeof args[0] === "string" &&
+						args[1] === false &&
+						args.length === 2
+					) {
+						path = args[0];
+						return true;
+					}
+					return sendSync.call(ipc, channel, ...args);
+				};
+			} catch {
+				action();
+				return;
+			}
+			try {
+				action();
+			} finally {
+				if (ownSendSync) {
+					ipc.sendSync = sendSync;
+				} else {
+					Reflect.deleteProperty(ipc, "sendSync");
+				}
+			}
+			if (path !== undefined) {
+				select(path);
+			}
 		},
 		open(target) {
 			if (!openRegistered(target)) {

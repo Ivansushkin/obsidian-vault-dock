@@ -7,14 +7,14 @@ import { runInNewContext } from "node:vm";
 const bundle = buildSync({
 	stdin: {
 		contents:
-			'export { Handoff } from "./src/handoff.ts"; export { connectDesktop } from "./src/desktop.ts";',
+			'export { Handoff } from "./src/handoff.ts"; export { connectDesktop } from "./src/desktop.ts"; export { watchNativeVaultMenu } from "./src/native-vault-menu.ts";',
 		resolveDir: process.cwd(),
 	},
 	bundle: true,
 	write: false,
 	format: "esm",
 }).outputFiles[0].text;
-const { Handoff, connectDesktop } = await import(
+const { Handoff, connectDesktop, watchNativeVaultMenu } = await import(
 	`data:text/javascript,${encodeURIComponent(bundle)}`
 );
 
@@ -594,6 +594,127 @@ test("focus mode reveals a window previously hidden by the plugin without changi
 	actions.length = 0;
 	assert.equal(await target.switchTo("a", "focus"), "ok");
 	assert.deepEqual(actions, ["focus a", "show 1"]);
+});
+
+test("the stock sidebar menu shows the current mode and routes vault selections", async () => {
+	const opened = [];
+	const selected = [];
+	const ipcRenderer = {
+		sendSync(channel, path) {
+			if (channel === "vault") {
+				return { id: "a" };
+			}
+			opened.push(path);
+			return true;
+		},
+	};
+	const desktop = connectDesktop({
+		electron: {
+			ipcRenderer,
+			remote: {
+				BrowserWindow: { fromId: () => null, getAllWindows: () => [] },
+			},
+		},
+		electronWindow: expandedTarget([]),
+	});
+	let mode = "keep-open";
+	const menuType = {
+		forEvent: () => ({
+			items: [],
+			addSeparator() {
+				return this;
+			},
+			addItem(build) {
+				const row = {};
+				const item = {
+					setTitle(title) {
+						row.title = title;
+						return this;
+					},
+					setChecked(checked) {
+						row.checked = checked;
+						return this;
+					},
+					setIsLabel() {
+						return this;
+					},
+					onClick(callback) {
+						row.click = callback;
+						return this;
+					},
+				};
+				build(item);
+				this.items.push(row);
+				return this;
+			},
+		}),
+	};
+	const document = {};
+	const openMenu = async (type = "click", isVaultSwitcher = true) => {
+		const menu = menuType.forEvent({
+			type,
+			currentTarget: {
+				ownerDocument: document,
+				matches: () => isVaultSwitcher,
+			},
+		});
+		menu.addItem((item) =>
+			item
+				.setTitle("Vault B")
+				.onClick(() =>
+					ipcRenderer.sendSync("vault-open", "/b/Same", false),
+				),
+		);
+		await Promise.resolve();
+		return menu.items;
+	};
+	const stop = watchNativeVaultMenu(menuType, document, desktop, {
+		readMode: () => mode,
+		setMode: (next) => {
+			mode = next;
+		},
+		selectVault: (path) => selected.push([path, mode]),
+		t: (key) => key,
+	});
+	let rows = await openMenu();
+	assert.deepEqual(
+		rows.map(({ title, checked }) => [title, checked]),
+		[
+			["Vault B", undefined],
+			["switchingMode", undefined],
+			["hideCurrentWindow", true],
+			["closeCurrentWindow", false],
+			["keepBothWindowsOpen", false],
+		],
+	);
+	rows.find(({ title }) => title === "closeCurrentWindow").click();
+	rows = await openMenu();
+	assert.equal(
+		rows.find(({ title }) => title === "closeCurrentWindow").checked,
+		true,
+	);
+	rows[0].click();
+	assert.deepEqual(selected, [["/b/Same", "replace"]]);
+	assert.deepEqual(opened, []);
+	for (const [type, isVaultSwitcher] of [
+		["contextmenu", true],
+		["click", false],
+	]) {
+		const otherRows = await openMenu(type, isVaultSwitcher);
+		assert.equal(otherRows.length, 1);
+		otherRows[0].click();
+	}
+	mode = undefined;
+	rows = await openMenu();
+	assert.equal(rows.length, 1);
+	rows[0].click();
+	mode = "replace";
+	stop();
+	rows = await openMenu();
+	assert.equal(rows.length, 1);
+	rows[0].click();
+	assert.deepEqual(selected, [["/b/Same", "replace"]]);
+	assert.deepEqual(opened, Array(4).fill("/b/Same"));
 });
 
 test("open or focus uses the current instance before falling back to an encoded URI", async () => {

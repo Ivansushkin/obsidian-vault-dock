@@ -13,6 +13,7 @@ import type { ProfileSettingChange, SettingsSnapshot } from "./settings-store";
 import {
 	DEFAULT_SWITCHING_MODE,
 	isSwitchingMode,
+	switchingModeLabels,
 	type SwitchingMode,
 } from "./switching-mode";
 import {
@@ -102,11 +103,7 @@ export class SwitcherSettingsTab extends PluginSettingTab {
 						control: {
 							type: "dropdown",
 							key: "mode",
-							options: {
-								"keep-open": this.t("hideCurrentWindow"),
-								replace: this.t("closeCurrentWindow"),
-								focus: this.t("keepBothWindowsOpen"),
-							} satisfies Record<SwitchingMode, string>,
+							options: switchingModeLabels(this.t),
 							defaultValue: DEFAULT_SWITCHING_MODE,
 							disabled,
 						},

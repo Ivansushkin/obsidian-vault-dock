@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.1
+
+- Obsidian’s built-in sidebar vault switcher now follows the Vault Dock
+  switching mode and can reopen windows hidden by the plugin.
+- Change the mode directly from the built-in menu. The menu marks the active
+  mode and uses the same shared or per-vault setting as Vault Dock.
+- The switching mode setting now explains that it also affects the built-in
+  switcher.
+
 ## 0.1.0
 
 - Open or focus any registered vault with one click from a dock. Place the dock

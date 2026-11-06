@@ -31,7 +31,7 @@ const en = {
 	systemLanguage: "System default",
 	switchingMode: "Switching mode",
 	switchingModeDescription:
-		"A hidden window keeps its tabs. If Obsidian Vault Dock is inactive in the destination vault, the current window closes instead of being hidden.",
+		"Important. This mode also applies to Obsidian’s built-in vault switcher. A hidden window keeps its tabs. If Obsidian Vault Dock is inactive in the destination vault, the current window closes instead of being hidden.",
 	closeCurrentWindow: "Close current window",
 	hideCurrentWindow: "Hide current window",
 	keepBothWindowsOpen: "Keep both windows open",
@@ -102,7 +102,7 @@ const messages: Record<Language, Messages> = {
 		systemLanguage: "Как в Obsidian",
 		switchingMode: "Режим переключения",
 		switchingModeDescription:
-			"Скрытое окно сохраняет вкладки. Если в выбранном хранилище плагин не включён, текущее окно закрывается вместо скрытия.",
+			"Важно. Этот режим также действует при переключении хранилищ через штатное меню Obsidian. Скрытое окно сохраняет вкладки. Если в выбранном хранилище плагин не включён, текущее окно закрывается вместо скрытия.",
 		closeCurrentWindow: "Закрывать текущее окно",
 		hideCurrentWindow: "Скрывать текущее окно",
 		keepBothWindowsOpen: "Оставлять оба окна открытыми",
@@ -174,7 +174,7 @@ const messages: Record<Language, Messages> = {
 		systemLanguage: "Obsidian тілі",
 		switchingMode: "Ауысу режимі",
 		switchingModeDescription:
-			"Жасырылған терезенің қойындылары сақталады. Таңдалған қоймада плагин қосылмаған болса, ағымдағы терезе жасырылмай, жабылады.",
+			"Маңызды. Бұл режим Obsidian-ның кіріктірілген қойма ауыстырғышына да қолданылады. Жасырылған терезенің қойындылары сақталады. Таңдалған қоймада плагин қосылмаған болса, ағымдағы терезе жасырылмай, жабылады.",
 		closeCurrentWindow: "Ағымдағы терезені жабу",
 		hideCurrentWindow: "Ағымдағы терезені жасыру",
 		keepBothWindowsOpen: "Екі терезені де ашық қалдыру",
@@ -246,7 +246,7 @@ const messages: Record<Language, Messages> = {
 		systemLanguage: "Як у Obsidian",
 		switchingMode: "Рэжым пераключэння",
 		switchingModeDescription:
-			"Схаванае акно захоўвае ўкладкі. Калі ў выбраным сховішчы плагін не ўключаны, бягучае акно закрываецца замест таго, каб схавацца.",
+			"Важна. Гэты рэжым таксама дзейнічае пры пераключэнні сховішчаў праз убудаванае меню Obsidian. Схаванае акно захоўвае ўкладкі. Калі ў выбраным сховішчы плагін не ўключаны, бягучае акно закрываецца замест таго, каб схавацца.",
 		closeCurrentWindow: "Закрываць бягучае акно",
 		hideCurrentWindow: "Хаваць бягучае акно",
 		keepBothWindowsOpen: "Пакідаць абодва акны адкрытымі",
@@ -317,7 +317,7 @@ const messages: Record<Language, Messages> = {
 		systemLanguage: "Obsidian tili",
 		switchingMode: "Almashish rejimi",
 		switchingModeDescription:
-			"Yashirilgan oynadagi varaqlar saqlanadi. Tanlangan omborda plagin yoqilmagan bo‘lsa, joriy oyna yashirilish o‘rniga yopiladi.",
+			"Muhim. Bu rejim Obsidian’ning ichki ombor almashtirgichiga ham tatbiq etiladi. Yashirilgan oynadagi varaqlar saqlanadi. Tanlangan omborda plagin yoqilmagan bo‘lsa, joriy oyna yashirilish o‘rniga yopiladi.",
 		closeCurrentWindow: "Joriy oynani yopish",
 		hideCurrentWindow: "Joriy oynani yashirish",
 		keepBothWindowsOpen: "Ikkala oynani ham ochiq qoldirish",
@@ -390,7 +390,7 @@ const messages: Record<Language, Messages> = {
 		systemLanguage: "跟随 Obsidian",
 		switchingMode: "切换方式",
 		switchingModeDescription:
-			"隐藏的窗口会保留其标签页。如果目标仓库未启用此插件，当前窗口将关闭而非隐藏。",
+			"请注意，此模式也适用于 Obsidian 内置的仓库切换器。隐藏的窗口会保留其标签页。如果目标仓库未启用此插件，当前窗口将关闭而非隐藏。",
 		closeCurrentWindow: "关闭当前窗口",
 		hideCurrentWindow: "隐藏当前窗口",
 		keepBothWindowsOpen: "保持两个窗口都打开",
@@ -453,7 +453,7 @@ const messages: Record<Language, Messages> = {
 		systemLanguage: "沿用 Obsidian 的語言",
 		switchingMode: "切換方式",
 		switchingModeDescription:
-			"隱藏的視窗會保留其分頁。如果目標儲存庫未啟用此外掛程式，目前的視窗將關閉而非隱藏。",
+			"請注意，此模式也適用於 Obsidian 內建的儲存庫切換器。隱藏的視窗會保留其分頁。如果目標儲存庫未啟用此外掛程式，目前的視窗將關閉而非隱藏。",
 		closeCurrentWindow: "關閉目前的視窗",
 		hideCurrentWindow: "隱藏目前的視窗",
 		keepBothWindowsOpen: "保持兩個視窗都開啟",
@@ -517,7 +517,7 @@ const messages: Record<Language, Messages> = {
 		systemLanguage: "Obsidianの言語に合わせる",
 		switchingMode: "切り替えモード",
 		switchingModeDescription:
-			"非表示にしたウィンドウのタブは保持されます。切り替え先でプラグインが無効な場合、現在のウィンドウは閉じられます。",
+			"ご注意ください。このモードは Obsidian 標準の保管庫切り替えにも適用されます。非表示にしたウィンドウのタブは保持されます。切り替え先でプラグインが無効な場合、現在のウィンドウは閉じられます。",
 		closeCurrentWindow: "現在のウィンドウを閉じる",
 		hideCurrentWindow: "現在のウィンドウを非表示にする",
 		keepBothWindowsOpen: "両方のウィンドウを開いたままにする",

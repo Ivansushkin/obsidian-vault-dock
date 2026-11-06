@@ -50,6 +50,9 @@ Install and enable the plugin in two vaults, then click the other vault’s tile
 to switch. Use **Switching mode** in the plugin settings to choose how the
 windows behave.
 
+The built-in Obsidian sidebar switcher uses the same mode as the Vault Dock
+tiles. You can change it in either the switcher menu or the plugin settings.
+
 | Mode                              | Current window                                  | Destination window                                    |
 | --------------------------------- | ----------------------------------------------- | ----------------------------------------------------- |
 | **Hide current window** (default) | Hides and keeps its tabs ready for your return. | Takes the current window’s size and position.         |
