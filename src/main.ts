@@ -181,6 +181,8 @@ export default class ObsidianVaultDockPlugin extends Plugin {
 			t,
 			(position) =>
 				void settingsTab.setControlValue("barPosition", position),
+			(hideLabels) =>
+				void settingsTab.setControlValue("hideLabels", hideLabels),
 		);
 		const settingsTab = new SwitcherSettingsTab(
 			this,

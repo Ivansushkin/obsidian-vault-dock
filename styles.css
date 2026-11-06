@@ -147,10 +147,11 @@ body.is-translucent:not(.is-fullscreen) .vault-dock::before {
 	flex: 0 0 auto;
 	flex-direction: column;
 	align-items: center;
+	justify-content: flex-start;
 	box-sizing: border-box;
-	gap: var(--size-2-1);
+	gap: var(--size-4-1);
 	width: calc(
-		var(--vault-switcher-tile-width) * 1.3 *
+		var(--vault-switcher-tile-width) * 1.105 *
 			var(--vault-switcher-tile-scale)
 	);
 	height: auto;
@@ -269,12 +270,16 @@ body.is-translucent:not(.is-fullscreen) .vault-dock::before {
 }
 
 .vault-dock .vault-dock-label {
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
 	overflow: hidden;
 	width: 100%;
 	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-bold);
 	text-align: center;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+	overflow-wrap: anywhere;
+	white-space: normal;
 }
 
 .vault-dock .vault-dock-hide-labels button.vault-dock-tile {

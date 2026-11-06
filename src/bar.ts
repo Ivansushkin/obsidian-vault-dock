@@ -146,6 +146,7 @@ export class Bar {
 		saveScale: (scale: number) => Promise<void>,
 		private readonly t: Translate,
 		private readonly onChangePosition: (position: BarPosition) => void,
+		private readonly onChangeHideLabels: (hideLabels: boolean) => void,
 	) {
 		this.element = document.createElement("div");
 		this.element.className = "vault-dock";
@@ -371,7 +372,7 @@ export class Bar {
 		return menu;
 	}
 
-	/** Mark the mounted position, including when a sidebar anchor falls back. */
+	/** Show the mounted position and current label visibility. */
 	private showPositionMenu(event: MouseEvent): void {
 		event.preventDefault();
 		event.stopPropagation();
@@ -389,6 +390,14 @@ export class Bar {
 					.onClick(() => this.onChangePosition(value)),
 			);
 		}
+		const hideLabels = this.labelsHidden;
+		menu.addSeparator();
+		menu.addItem((item) =>
+			item
+				.setTitle(this.t("hideLabels"))
+				.setChecked(hideLabels)
+				.onClick(() => this.onChangeHideLabels(!hideLabels)),
+		);
 		menu.showAtMouseEvent(event);
 	}
 
@@ -456,9 +465,7 @@ export class Bar {
 				scale: this.element.style.getPropertyValue(
 					"--vault-switcher-tile-scale",
 				),
-				hideLabel: this.tiles.classList.contains(
-					"vault-dock-hide-labels",
-				),
+				hideLabel: this.labelsHidden,
 			},
 			colors,
 			this.t,
@@ -530,7 +537,12 @@ export class Bar {
 		}
 	}
 
+	private get labelsHidden(): boolean {
+		return this.tiles.classList.contains("vault-dock-hide-labels");
+	}
+
 	setHideLabels(hideLabels: boolean): void {
+		this.menu?.hide();
 		this.resize.cancel();
 		this.tiles.classList.toggle("vault-dock-hide-labels", hideLabels);
 	}
