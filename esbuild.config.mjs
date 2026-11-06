@@ -12,7 +12,12 @@ const { values } = parseArgs({
 });
 const entry = resolve("src/main.ts");
 const buildDir = resolve("build");
+const outfile = join(buildDir, "main.js");
 const assets = ["manifest.json", "styles.css"].map((path) => resolve(path));
+const installFiles = [
+	basename(outfile),
+	...assets.map((path) => basename(path)),
+];
 const manifestPath = assets[0];
 
 /** Read the configured plugin directories, with a fallback to the single path. */
@@ -87,7 +92,7 @@ const pluginAssets = {
 			if (!configDir && localPluginDirs.length === 0) {
 				return;
 			}
-			const { id } = JSON.parse(readFileSync(manifestPath, "utf8"));
+			const { id, name } = JSON.parse(readFileSync(manifestPath, "utf8"));
 			if (typeof id !== "string" || !/^[a-z]+(?:-[a-z]+)*$/u.test(id)) {
 				throw new Error("Invalid plugin ID in manifest.json.");
 			}
@@ -98,11 +103,7 @@ const pluginAssets = {
 			for (const pluginDir of pluginDirs) {
 				try {
 					mkdirSync(pluginDir, { recursive: true });
-					for (const asset of [
-						"main.js",
-						"manifest.json",
-						"styles.css",
-					]) {
+					for (const asset of installFiles) {
 						copyFileSync(
 							join(buildDir, asset),
 							join(pluginDir, asset),
@@ -110,11 +111,11 @@ const pluginAssets = {
 					}
 				} catch (error) {
 					installErrors.push({
-						text: `Could not install Vault Switcher Bar to ${pluginDir}. The destination may be partially updated. ${String(error)}`,
+						text: `Could not install ${name} to ${pluginDir}. The destination may be partially updated. ${String(error)}`,
 					});
 					continue;
 				}
-				console.log(`Installed Vault Switcher Bar to ${pluginDir}`);
+				console.log(`Installed ${name} to ${pluginDir}`);
 			}
 			return { errors: installErrors };
 		});
@@ -123,7 +124,7 @@ const pluginAssets = {
 
 const options = {
 	entryPoints: [entry],
-	outfile: join(buildDir, "main.js"),
+	outfile,
 	bundle: true,
 	format: "cjs",
 	platform: "browser",

@@ -1,6 +1,6 @@
 {
-	"id": "vault-switcher-bar",
-	"name": "Vault Switcher Bar",
+	"id": "vault-dock",
+	"name": "Obsidian Vault Dock",
 	"version": "0.1.0",
 	"minAppVersion": "1.15.0",
 	"description": "Switch between vaults from a bar in the sidebar.",

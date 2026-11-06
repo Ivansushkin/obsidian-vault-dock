@@ -1,16 +1,16 @@
 import { getLanguage, Notice, Plugin } from "obsidian";
-import { Bar, ImageSettings, mountBar } from "./bar";
+import { Bar, mountBar } from "./bar";
+import { DEFAULT_BAR_POSITION } from "./bar-position";
 import { connectDesktop, type Desktop, type RegisteredVault } from "./desktop";
 import { Handoff } from "./handoff";
 import { getMessages, type Translate } from "./i18n";
 import { SettingsStore, type SettingsSnapshot } from "./settings-store";
 import { SwitcherSettingsTab } from "./settings-tab";
 
-export default class VaultSwitcherBarPlugin extends Plugin {
+export default class ObsidianVaultDockPlugin extends Plugin {
 	private vaults: RegisteredVault[] = [];
 	private disposed = false;
 	private pending = false;
-	private modal?: ImageSettings;
 
 	onload(): void {
 		let messages = getMessages("system", getLanguage());
@@ -31,7 +31,7 @@ export default class VaultSwitcherBarPlugin extends Plugin {
 
 		const activeId = desktop.currentId;
 		const handoff = new Handoff(win, desktop, activeId);
-		handoff.receive(false);
+		void handoff.receive(false);
 
 		let settings: SettingsSnapshot | undefined;
 		let readRevision = 0;
@@ -43,7 +43,7 @@ export default class VaultSwitcherBarPlugin extends Plugin {
 				this.vaults,
 				activeId,
 				settings?.pictures ?? emptyPictures,
-				this.pending || !settings,
+				settings?.placeholderColors,
 			);
 		const refreshSettings = async () => {
 			const revision = ++readRevision;
@@ -63,16 +63,42 @@ export default class VaultSwitcherBarPlugin extends Plugin {
 			settingsUnavailable = false;
 			const nextMessages = getMessages(next.language, getLanguage());
 			const languageChanged = messages !== nextMessages;
+			const positionChanged =
+				(settings?.barPosition ?? DEFAULT_BAR_POSITION) !==
+				next.barPosition;
+			const picturesChanged = settings?.pictures !== next.pictures;
+			const previousColors = settings?.placeholderColors;
+			const colorsChanged =
+				previousColors?.size !== next.placeholderColors.size ||
+				Array.from(next.placeholderColors).some(([id, colors]) => {
+					const previous = previousColors.get(id);
+					return (
+						previous?.background !== colors.background ||
+						previous?.text !== colors.text
+					);
+				});
+			const labelsChanged =
+				(settings?.hideLabels ?? false) !== next.hideLabels;
+			const scaleChanged = settings?.tileScale !== next.tileScale;
 			messages = nextMessages;
 			const changed =
 				languageChanged ||
+				positionChanged ||
+				scaleChanged ||
 				settings?.language !== next.language ||
 				settings?.mode !== next.mode ||
+				settings?.hideLabels !== next.hideLabels ||
 				settings?.scopeRevision !== next.scopeRevision;
 			settings = next;
+			bar.setPending(this.pending);
+			if (scaleChanged) {
+				bar.setTileScale(next.tileScale);
+			}
+			if (labelsChanged) {
+				bar.setHideLabels(next.hideLabels);
+			}
 			if (languageChanged) {
 				bar.localize();
-				this.modal?.localize();
 			}
 			if (next.mode !== "keep-open") {
 				handoff.restoreHiddenWindow();
@@ -80,7 +106,12 @@ export default class VaultSwitcherBarPlugin extends Plugin {
 			if (changed) {
 				settingsTab.update();
 			}
-			render();
+			if (picturesChanged || colorsChanged) {
+				render();
+			}
+			if (positionChanged && workspace.layoutReady) {
+				mount();
+			}
 		};
 		const refresh = () => {
 			try {
@@ -108,17 +139,22 @@ export default class VaultSwitcherBarPlugin extends Plugin {
 			if (id === activeId || this.pending || !settings) {
 				return;
 			}
-			this.pending = true;
-			render();
-			const result = await handoff.switchTo(id, settings.mode);
+			const mode = settings.mode;
+			if (mode !== "focus") {
+				this.pending = true;
+				bar.setPending(true);
+			}
+			const result = await handoff.switchTo(id, mode);
 			if (this.disposed) {
 				return;
 			}
 			if (settings.mode !== "keep-open") {
 				handoff.restoreHiddenWindow();
 			}
-			this.pending = false;
-			render();
+			if (mode !== "focus") {
+				this.pending = false;
+				bar.setPending(false);
+			}
 			if (result === "timeout") {
 				new Notice(t("switchTimeout"));
 			} else if (result === "busy") {
@@ -129,23 +165,21 @@ export default class VaultSwitcherBarPlugin extends Plugin {
 		};
 		const bar = new Bar(
 			container.ownerDocument,
+			this.app,
 			(id) => void select(id),
-			() => {
-				refresh();
-				this.modal?.close();
-				this.modal = new ImageSettings(
-					this.app,
-					this.vaults,
-					() => settings?.scopeRevision,
-					async (id, file, scopeRevision) => {
-						await store.save(id, file, scopeRevision);
-						await refreshSettings();
-					},
-					t,
-				);
-				this.modal.open();
+			() => settings?.scopeRevision,
+			async (id, file, scopeRevision) => {
+				await store.save(id, file, scopeRevision);
+				await refreshSettings();
 			},
+			async (id, colors, scopeRevision) => {
+				await store.savePlaceholderColors(id, colors, scopeRevision);
+				await refreshSettings();
+			},
+			(scale) => settingsTab.setControlValue("tileScale", scale),
 			t,
+			(position) =>
+				void settingsTab.setControlValue("barPosition", position),
 		);
 		const settingsTab = new SwitcherSettingsTab(
 			this,
@@ -157,7 +191,7 @@ export default class VaultSwitcherBarPlugin extends Plugin {
 					} else if ("shared" in change) {
 						await store.setShared(change.shared, scopeRevision);
 					} else {
-						await store.setLanguage(change.language);
+						await store.setProfileSetting(...change.profile);
 					}
 				} catch {
 					new Notice(t("saveSettingsFailed"));
@@ -172,19 +206,33 @@ export default class VaultSwitcherBarPlugin extends Plugin {
 			bar.element.isConnected &&
 			this.vaults.some(({ id }) => id === activeId);
 		const mount = () => {
-			mountBar(container, bar.element);
-			handoff.receive(ready());
+			const { parentElement, nextElementSibling } = bar.element;
+			const position = bar.element.dataset.position;
+			mountBar(
+				container,
+				bar.element,
+				settings?.barPosition ?? DEFAULT_BAR_POSITION,
+			);
+			if (
+				parentElement !== bar.element.parentElement ||
+				nextElementSibling !== bar.element.nextElementSibling ||
+				position !== bar.element.dataset.position
+			) {
+				bar.onPlacementChanged();
+			}
+			void handoff.receive(ready());
 		};
 
 		this.register(() => {
 			this.disposed = true;
 			handoff.dispose();
 			store.dispose();
-			this.modal?.close();
 			bar.dispose();
 		});
-		this.registerDomEvent(win, "storage", (event) =>
-			handoff.receive(ready(), event),
+		this.registerDomEvent(
+			win,
+			"storage",
+			(event) => void handoff.receive(ready(), event),
 		);
 		this.registerDomEvent(win, "focus", refresh);
 		workspace.onLayoutReady(() => {

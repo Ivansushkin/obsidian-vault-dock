@@ -1,4 +1,4 @@
-# Vault Switcher Bar development
+# Obsidian Vault Dock development
 
 ## Communication and code quality
 

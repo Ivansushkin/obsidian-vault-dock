@@ -1,9 +1,9 @@
 ---
 name: obsidian-vault-switcher-dev
-description: Use when changing or debugging vault discovery, the upper sidebar bar, shared tile images, or desktop window handoff in Vault Switcher Bar.
+description: Use when changing or debugging vault discovery, the upper sidebar bar, shared tile images, or desktop window handoff in Obsidian Vault Dock.
 ---
 
-# Vault Switcher Bar development
+# Obsidian Vault Dock development
 
 Read [development notes](../../../docs/development.md) for the prototype's
 versioned findings and the two-vault acceptance cases.

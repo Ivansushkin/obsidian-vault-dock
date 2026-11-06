@@ -38,12 +38,7 @@ test("the local build installs into every plugin directory configured in .env", 
 	const root = createBuildFixture(t);
 
 	const vault = join(root, "test vault");
-	const pluginPath = join(
-		vault,
-		".obsidian",
-		"plugins",
-		"vault-switcher-bar",
-	);
+	const pluginPath = join(vault, ".obsidian", "plugins", "vault-dock");
 	mkdirSync(join(vault, ".obsidian"), { recursive: true });
 	writeFileSync(
 		join(root, ".env"),
@@ -57,7 +52,7 @@ test("the local build installs into every plugin directory configured in .env", 
 			stdio: "pipe",
 		});
 
-	const installLog = `Installed Vault Switcher Bar to ${pluginPath}`;
+	const installLog = `Installed Obsidian Vault Dock to ${pluginPath}`;
 	assert.ok(build().includes(installLog));
 	rmSync(pluginPath, { recursive: true });
 
@@ -66,7 +61,7 @@ test("the local build installs into every plugin directory configured in .env", 
 		"second vault",
 		".obsidian",
 		"plugins",
-		"vault-switcher-bar",
+		"vault-dock",
 	);
 	const pluginPaths = [pluginPath, secondPluginPath];
 	writeFileSync(
@@ -81,10 +76,10 @@ test("the local build installs into every plugin directory configured in .env", 
 				readFileSync(join(root, "build", file)),
 			);
 		}
-		assert.ok(output.includes(`Installed Vault Switcher Bar to ${path}`));
+		assert.ok(output.includes(`Installed Obsidian Vault Dock to ${path}`));
 		rmSync(path, { recursive: true });
 	}
-	assert.ok(!build("--no-install").includes("Installed Vault Switcher Bar"));
+	assert.ok(!build("--no-install").includes("Installed Obsidian Vault Dock"));
 	assert.ok(pluginPaths.every((path) => !existsSync(path)));
 
 	const explicitVault = join(root, "explicit vault");
@@ -97,7 +92,7 @@ test("the local build installs into every plugin directory configured in .env", 
 				explicitVault,
 				".obsidian",
 				"plugins",
-				"vault-switcher-bar",
+				"vault-dock",
 				"main.js",
 			),
 		),
@@ -108,7 +103,7 @@ test("the local build installs into every plugin directory configured in .env", 
 test("a failed installation reports the destination and still installs into the other directories", (t) => {
 	const root = createBuildFixture(t);
 	const [first, broken, last] = ["first", "broken", "last"].map((name) =>
-		join(root, name, "vault-switcher-bar"),
+		join(root, name, "vault-dock"),
 	);
 	mkdirSync(join(broken, "manifest.json"), { recursive: true });
 	writeFileSync(
@@ -136,12 +131,12 @@ test("a failed installation reports the destination and still installs into the 
 		}
 		assert.ok(
 			result.stdout.includes(
-				`Installed Vault Switcher Bar to ${destination}`,
+				`Installed Obsidian Vault Dock to ${destination}`,
 			),
 		);
 	}
 	assert.ok(
-		!result.stdout.includes(`Installed Vault Switcher Bar to ${broken}`),
+		!result.stdout.includes(`Installed Obsidian Vault Dock to ${broken}`),
 	);
 	assert.ok(result.stderr.includes(broken));
 	assert.match(result.stderr, /partially updated/u);

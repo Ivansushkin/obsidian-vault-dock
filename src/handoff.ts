@@ -6,10 +6,10 @@ import {
 } from "./desktop";
 import { DEFAULT_SWITCHING_MODE, type SwitchingMode } from "./switching-mode";
 
-const REQUEST_KEY = "vault-switcher-bar:request";
-const REPLY_KEY = "vault-switcher-bar:reply";
-const REVEAL_KEY = "vault-switcher-bar:reveal";
-const LOCK_NAME = "vault-switcher-bar:handoff";
+const REQUEST_KEY = "vault-dock:request";
+const REPLY_KEY = "vault-dock:reply";
+const REVEAL_KEY = "vault-dock:reveal";
+const LOCK_NAME = "vault-dock:handoff";
 const FOCUS_TIMEOUT = 500;
 
 type Request = {
@@ -25,6 +25,7 @@ type Reply = {
 	windowId: number;
 	hidden?: boolean;
 };
+type Destination = Reply | { status: "without-plugin"; windowId: number };
 type Reveal = Pick<Request, "targetId" | "expires">;
 type Result = "ok" | "busy" | "timeout" | "failed" | "ignored";
 
@@ -45,6 +46,7 @@ export class Handoff {
 	private readonly lifecycle = new AbortController();
 	private switching = false;
 	private preparedId?: string;
+	private preparing?: { id: string; controller: AbortController };
 	private hidden = false;
 	private stopWatchingTargetClose?: () => void;
 
@@ -110,7 +112,7 @@ export class Handoff {
 		}
 	}
 
-	receive(layoutReady: boolean, event?: StorageEvent): void {
+	async receive(layoutReady: boolean, event?: StorageEvent): Promise<void> {
 		if (this.lifecycle.signal.aborted) {
 			return;
 		}
@@ -131,6 +133,10 @@ export class Handoff {
 			}
 			const storage = this.win.localStorage;
 			const request = read<Request>(storage, REQUEST_KEY);
+			if (this.preparing && this.preparing.id !== request?.id) {
+				this.preparing.controller.abort();
+				this.preparing = undefined;
+			}
 			if (
 				!request ||
 				typeof request.id !== "string" ||
@@ -139,14 +145,49 @@ export class Handoff {
 				request.targetId !== this.currentId ||
 				request.sourceId === this.currentId ||
 				!validBounds(request.bounds) ||
+				this.preparing?.id === request.id ||
 				read<Reply>(storage, REPLY_KEY)?.id === request.id
 			) {
 				return;
 			}
 
+			const { expires } = request;
+			const isCurrent = () =>
+				!this.lifecycle.signal.aborted &&
+				expires > Date.now() &&
+				read<Request>(storage, REQUEST_KEY)?.id === request.id;
 			let status: Reply["status"] = "ready";
 			try {
-				if (request.id !== this.preparedId) {
+				const windowId = this.desktop.windowId;
+				const normal = this.desktop.isNormalWindow(windowId);
+				if (!normal) {
+					if (!layoutReady) {
+						return;
+					}
+					const preparing = {
+						id: request.id,
+						controller: new AbortController(),
+					};
+					this.preparing = preparing;
+					try {
+						await this.desktop.normalizeWindow(
+							windowId,
+							expires,
+							AbortSignal.any([
+								this.lifecycle.signal,
+								preparing.controller.signal,
+							]),
+						);
+					} finally {
+						if (this.preparing === preparing) {
+							this.preparing = undefined;
+						}
+					}
+					if (!isCurrent()) {
+						return;
+					}
+				}
+				if (!normal || request.id !== this.preparedId) {
 					this.desktop.setBounds(request.bounds);
 					this.preparedId = request.id;
 				}
@@ -164,10 +205,7 @@ export class Handoff {
 					this.hidden &&
 					!this.desktop.isWindowVisible(this.desktop.windowId),
 			};
-			if (
-				request.expires > Date.now() &&
-				read<Request>(storage, REQUEST_KEY)?.id === request.id
-			) {
+			if (isCurrent()) {
 				storage.setItem(REPLY_KEY, JSON.stringify(reply));
 			}
 		} catch {
@@ -256,46 +294,73 @@ export class Handoff {
 			if (!target.open) {
 				this.desktop.open(target);
 			}
-			const reply = await this.waitForReply(storage, request);
+			const reply = await this.waitForDestination(storage, request);
 			if (this.lifecycle.signal.aborted) {
 				return "ignored";
 			}
 			if (!reply) {
 				return "timeout";
 			}
-			const { windowId, hidden = false } = reply;
+			const { windowId } = reply;
 			if (
-				reply.status !== "ready" ||
-				windowId === this.desktop.windowId ||
-				(keepOpen && reply.hidden === undefined) ||
+				reply.status === "failed" ||
+				windowId === this.desktop.windowId
+			) {
+				return "failed";
+			}
+			const withoutPlugin = reply.status === "without-plugin";
+			const hideSource = keepOpen && !withoutPlugin;
+			const hidden = !withoutPlugin && reply.hidden === true;
+			if (withoutPlugin) {
+				try {
+					await this.desktop.normalizeWindow(
+						windowId,
+						request.expires,
+						this.lifecycle.signal,
+					);
+				} catch (error) {
+					if (
+						!this.lifecycle.signal.aborted &&
+						Date.now() < request.expires
+					) {
+						throw error;
+					}
+				}
+				if (this.lifecycle.signal.aborted) {
+					return "ignored";
+				}
+				if (Date.now() >= request.expires) {
+					return "timeout";
+				}
+				this.desktop.setBounds(request.bounds, windowId);
+			} else if (keepOpen && reply.hidden === undefined) {
+				return "failed";
+			}
+			if (
 				!this.desktop.isReadyWindow(
 					windowId,
 					request.bounds,
-					keepOpen || hidden,
+					hideSource || hidden,
 				)
 			) {
 				return "failed";
 			}
 			if (
 				hidden ||
-				(keepOpen && !this.desktop.isWindowVisible(windowId))
+				(hideSource && !this.desktop.isWindowVisible(windowId))
 			) {
 				this.desktop.showWindow(windowId);
-			} else if (target.open) {
+			} else if (target.open || !this.desktop.isWindowFocused(windowId)) {
 				this.desktop.open(target);
 			}
-			if (keepOpen || hidden) {
-				const focused = await this.waitForFocus(windowId, request);
-				if (this.lifecycle.signal.aborted) {
-					return "ignored";
-				}
-				if (!focused) {
-					return "failed";
-				}
-			} else if (!this.desktop.isReadyWindow(windowId, request.bounds)) {
+			const focused = await this.waitForFocus(windowId, request);
+			if (this.lifecycle.signal.aborted) {
+				return "ignored";
+			}
+			if (!focused) {
 				return "failed";
 			}
-			if (keepOpen) {
+			if (hideSource) {
 				this.clearHiddenState();
 				this.stopWatchingTargetClose = this.desktop.watchWindowClose(
 					windowId,
@@ -345,16 +410,21 @@ export class Handoff {
 		return false;
 	}
 
-	private waitForReply(
+	/** Wait for a plugin acknowledgment or a ready Obsidian window without it. */
+	private waitForDestination(
 		storage: Storage,
 		request: Request,
-	): Promise<Reply | undefined> {
+	): Promise<Destination | undefined> {
 		return new Promise((resolve) => {
 			const signal = this.lifecycle.signal;
-			const finish = (reply?: Reply) => {
+			const search = new AbortController();
+			let finished = false;
+			const finish = (reply?: Destination) => {
+				finished = true;
 				this.win.clearTimeout(timer);
 				this.win.removeEventListener("storage", inspect);
 				signal.removeEventListener("abort", abort);
+				search.abort();
 				resolve(reply);
 			};
 			const abort = () => finish();
@@ -381,6 +451,22 @@ export class Handoff {
 					});
 				}
 			};
+			const findWindow = async () => {
+				const windowId = await this.desktop
+					.findWindowWithoutPlugin(
+						request.targetId,
+						request.expires,
+						search.signal,
+					)
+					.catch(() => undefined);
+				if (
+					!finished &&
+					windowId !== undefined &&
+					Date.now() < request.expires
+				) {
+					finish({ status: "without-plugin", windowId });
+				}
+			};
 			const timer = this.win.setTimeout(
 				abort,
 				Math.max(0, request.expires - Date.now()),
@@ -391,6 +477,9 @@ export class Handoff {
 				abort();
 			} else {
 				inspect();
+				if (!finished) {
+					void findWindow();
+				}
 			}
 		});
 	}

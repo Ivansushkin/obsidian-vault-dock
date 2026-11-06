@@ -1,4 +1,8 @@
+import { id as pluginId } from "../manifest.json";
+
 export type Bounds = { x: number; y: number; width: number; height: number };
+
+const WINDOW_POLL_INTERVAL = 100;
 
 export type RegisteredVault = {
 	id: string;
@@ -7,21 +11,31 @@ export type RegisteredVault = {
 	open: boolean;
 };
 
+type WindowTransition = "restore" | "leave-full-screen" | "unmaximize";
+type WindowEvent = "closed" | WindowTransition;
+
 type NativeWindow = {
 	id: number;
+	webContents?: {
+		getURL(): string;
+		executeJavaScript(code: string): Promise<unknown>;
+	};
 	getBounds(): Bounds;
 	setBounds(bounds: Bounds): void;
 	isVisible(): boolean;
 	isMaximized(): boolean;
 	isFullScreen(): boolean;
+	setFullScreen(fullscreen: boolean): void;
+	unmaximize(): void;
+	restore(): void;
 	isMinimized(): boolean;
 	isDestroyed(): boolean;
 	isFocused(): boolean;
 	show(): void;
 	showInactive(): void;
 	hide(): void;
-	once(event: "closed", listener: () => void): void;
-	removeListener(event: "closed", listener: () => void): void;
+	once(event: WindowEvent, listener: () => void): void;
+	removeListener(event: WindowEvent, listener: () => void): void;
 };
 
 type ElectronShell = { openExternal(url: string): Promise<void> };
@@ -32,7 +46,10 @@ type DesktopWindow = Window & {
 			sendSync(channel: string, ...args: unknown[]): unknown;
 		};
 		remote?: {
-			BrowserWindow?: { fromId(id: number): NativeWindow | null };
+			BrowserWindow?: {
+				fromId(id: number): NativeWindow | null;
+				getAllWindows?(): NativeWindow[];
+			};
 		};
 		shell?: ElectronShell;
 	};
@@ -67,10 +84,70 @@ function matchesBounds(first: Bounds, second: Bounds): boolean {
 	);
 }
 
+function isNormalWindow(win: NativeWindow): boolean {
+	return !win.isMaximized() && !win.isFullScreen() && !win.isMinimized();
+}
+
 function requireNormalWindow(win: NativeWindow): void {
-	if (win.isMaximized() || win.isFullScreen() || win.isMinimized()) {
+	if (!isNormalWindow(win)) {
 		throw new Error("Vault switching requires normal windows");
 	}
+}
+
+/** Subscribe before requesting a native state change, including synchronous events. */
+function waitForWindowTransition(
+	target: NativeWindow,
+	event: WindowTransition,
+	isPending: () => boolean,
+	change: () => void,
+	expires: number,
+	signal: AbortSignal,
+): Promise<void> {
+	return new Promise((resolve, reject) => {
+		const remaining = expires - Date.now();
+		if (signal.aborted || remaining <= 0 || target.isDestroyed()) {
+			reject(new Error("The window transition was cancelled"));
+			return;
+		}
+		const cleanup = () => {
+			clearTimeout(timer);
+			signal.removeEventListener("abort", cancel);
+			try {
+				if (!target.isDestroyed()) {
+					target.removeListener(event, complete);
+					target.removeListener("closed", cancel);
+				}
+			} catch {
+				// The native window may close before listener removal reaches it.
+			}
+		};
+		const complete = () => {
+			cleanup();
+			resolve();
+		};
+		const cancel = () => {
+			cleanup();
+			reject(new Error("The window transition was cancelled"));
+		};
+		const timer = setTimeout(cancel, remaining);
+		signal.addEventListener("abort", cancel, { once: true });
+		try {
+			target.once(event, complete);
+			target.once("closed", cancel);
+			if (isPending()) {
+				change();
+			} else {
+				complete();
+			}
+		} catch (error) {
+			cleanup();
+			reject(
+				new Error("Could not change the native window state", {
+					cause: error,
+				}),
+			);
+		}
+	});
 }
 
 export type Desktop = {
@@ -78,7 +155,18 @@ export type Desktop = {
 	windowId: number;
 	list(): RegisteredVault[];
 	getBounds(): Bounds;
-	setBounds(bounds: Bounds): void;
+	isNormalWindow(id: number): boolean;
+	normalizeWindow(
+		id: number,
+		expires: number,
+		signal: AbortSignal,
+	): Promise<void>;
+	setBounds(bounds: Bounds, windowId?: number): void;
+	findWindowWithoutPlugin(
+		targetId: string,
+		expires: number,
+		signal: AbortSignal,
+	): Promise<number | undefined>;
 	open(target: RegisteredVault): void;
 	openOrFocus(target: RegisteredVault): Promise<void>;
 	isReadyWindow(id: number, bounds: Bounds, allowHidden?: boolean): boolean;
@@ -119,6 +207,8 @@ export function connectDesktop(win: DesktopWindow): Desktop | undefined {
 	};
 	const openRegistered = (target: RegisteredVault) =>
 		ipc.sendSync("vault-open", target.path, false) === true;
+	// Electron cannot cancel an evaluation already sent to a renderer.
+	const pendingWindowProbes = new Set<number>();
 	return {
 		currentId: current.id,
 		windowId: native.id,
@@ -157,12 +247,142 @@ export function connectDesktop(win: DesktopWindow): Desktop | undefined {
 			}
 			return bounds;
 		},
-		setBounds(bounds) {
-			requireNormalWindow(native);
-			native.setBounds(bounds);
-			if (!matchesBounds(native.getBounds(), bounds)) {
+		isNormalWindow(id) {
+			const target = getWindow(id);
+			return !!target && isNormalWindow(target);
+		},
+		async normalizeWindow(id, expires, signal) {
+			const target = getWindow(id);
+			if (!target) {
+				throw new Error("The target window is unavailable");
+			}
+			if (target.isMinimized()) {
+				await waitForWindowTransition(
+					target,
+					"restore",
+					() => target.isMinimized(),
+					() => target.restore(),
+					expires,
+					signal,
+				);
+			}
+			if (target.isFullScreen()) {
+				await waitForWindowTransition(
+					target,
+					"leave-full-screen",
+					() => target.isFullScreen(),
+					() => target.setFullScreen(false),
+					expires,
+					signal,
+				);
+			}
+			if (target.isMaximized()) {
+				await waitForWindowTransition(
+					target,
+					"unmaximize",
+					() => target.isMaximized(),
+					() => target.unmaximize(),
+					expires,
+					signal,
+				);
+			}
+			requireNormalWindow(target);
+		},
+		setBounds(bounds, windowId = native.id) {
+			const target = getWindow(windowId);
+			if (!target) {
+				throw new Error("The target window is unavailable");
+			}
+			requireNormalWindow(target);
+			target.setBounds(bounds);
+			if (!matchesBounds(target.getBounds(), bounds)) {
 				throw new Error("Could not apply window geometry");
 			}
+		},
+		findWindowWithoutPlugin(targetId, expires, signal) {
+			// Restricted Mode unloads plugins without clearing enabledPlugins.
+			// An enabled plugin may also be absent while it is still loading.
+			const vaultPage = "app://obsidian.md/index.html";
+			const probe = `location.href === ${JSON.stringify(vaultPage)} &&
+				window.app?.appId === ${JSON.stringify(targetId)} &&
+				window.app.workspace?.layoutReady === true &&
+				window.app.workspace.containerEl?.ownerDocument.defaultView === window &&
+				window.app.plugins?.getPlugin?.(${JSON.stringify(pluginId)}) === null &&
+				(window.app.plugins?.isEnabled?.() === false ||
+					window.app.plugins?.enabledPlugins?.has?.(${JSON.stringify(pluginId)}) === false)`;
+			return new Promise((resolve) => {
+				const remaining = expires - Date.now();
+				if (
+					!windows.getAllWindows ||
+					signal.aborted ||
+					remaining <= 0
+				) {
+					resolve(undefined);
+					return;
+				}
+				let finished = false;
+				const finish = (id?: number) => {
+					finished = true;
+					clearTimeout(timeout);
+					clearInterval(interval);
+					signal.removeEventListener("abort", cancel);
+					resolve(id);
+				};
+				const cancel = () => finish();
+				const inspect = async (candidate: NativeWindow) => {
+					try {
+						const id = candidate.id;
+						if (
+							id === native.id ||
+							pendingWindowProbes.has(id) ||
+							candidate.isDestroyed() ||
+							(!candidate.isVisible() && !candidate.isMinimized())
+						) {
+							return;
+						}
+						const contents = candidate.webContents;
+						if (contents?.getURL() !== vaultPage) {
+							return;
+						}
+						pendingWindowProbes.add(id);
+						try {
+							if (
+								(await contents.executeJavaScript(probe)) ===
+									true &&
+								!finished &&
+								Date.now() < expires &&
+								!candidate.isDestroyed() &&
+								(candidate.isVisible() ||
+									candidate.isMinimized())
+							) {
+								finish(id);
+							}
+						} finally {
+							pendingWindowProbes.delete(id);
+						}
+					} catch {
+						// A candidate may close during the probe.
+					}
+				};
+				const poll = () => {
+					if (Date.now() >= expires) {
+						cancel();
+						return;
+					}
+					try {
+						for (const candidate of windows.getAllWindows?.() ??
+							[]) {
+							void inspect(candidate);
+						}
+					} catch {
+						// Retry enumeration while the switch is still pending.
+					}
+				};
+				const timeout = setTimeout(cancel, remaining);
+				const interval = setInterval(poll, WINDOW_POLL_INTERVAL);
+				signal.addEventListener("abort", cancel, { once: true });
+				poll();
+			});
 		},
 		open(target) {
 			if (!openRegistered(target)) {
@@ -191,6 +411,7 @@ export function connectDesktop(win: DesktopWindow): Desktop | undefined {
 			const target = getWindow(id);
 			return (
 				!!target &&
+				isNormalWindow(target) &&
 				(allowHidden || target.isVisible()) &&
 				matchesBounds(target.getBounds(), bounds)
 			);

@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
+import { EventEmitter } from "node:events";
 import { buildSync } from "esbuild";
 import test from "node:test";
+import { runInNewContext } from "node:vm";
 
 const bundle = buildSync({
 	stdin: {
@@ -17,6 +19,7 @@ const { Handoff, connectDesktop } = await import(
 );
 
 const bounds = { x: 10, y: 20, width: 900, height: 650 };
+const vaultPage = "app://obsidian.md/index.html";
 const vaults = [
 	{ id: "a", name: "Same", path: "/a/Same", open: true },
 	{ id: "b", name: "Same", path: "/b/Same", open: true },
@@ -84,7 +87,10 @@ function fixture({ asyncStorage = false } = {}) {
 		},
 		list: () => vaults,
 		getBounds: () => bounds,
+		isNormalWindow: () => true,
+		normalizeWindow: async () => {},
 		setBounds: () => actions.push("bounds"),
+		findWindowWithoutPlugin: async () => undefined,
 		open: (target) => actions.push(target.path),
 		openOrFocus: async (target) => actions.push(`focus ${target.id}`),
 		watchWindowClose(id, onClose) {
@@ -104,15 +110,29 @@ function fixture({ asyncStorage = false } = {}) {
 
 test("an open destination applies bounds and becomes ready before focus and source close", async () => {
 	const { win, desktop, actions } = fixture();
-	const source = new Handoff(win, desktop, "a");
+	let searchSignal;
+	const source = new Handoff(
+		win,
+		{
+			...desktop,
+			findWindowWithoutPlugin: async (_id, _expires, signal) => {
+				searchSignal = signal;
+				await new Promise((resolve) =>
+					signal.addEventListener("abort", resolve, { once: true }),
+				);
+			},
+		},
+		"a",
+	);
 	const target = new Handoff(win, { ...desktop, windowId: 2 }, "b");
 	win.addEventListener("storage", () => target.receive(false));
-	const result = source.switchTo("b");
+	const result = source.switchTo("b", "replace");
 	assert.deepEqual(actions, ["bounds"]);
 	assert.equal(await source.switchTo("b"), "busy");
 	assert.equal(await target.switchTo("a"), "busy");
 	target.receive(true);
 	assert.equal(await result, "ok");
+	assert.equal(searchSignal.aborted, true);
 	assert.deepEqual(actions, ["bounds", "/b/Same", "close 1"]);
 });
 
@@ -150,7 +170,7 @@ test("a cold destination opens and prepares its geometry before acknowledging re
 		"a",
 	);
 	const target = new Handoff(win, { ...desktop, windowId: 2 }, "b");
-	const result = source.switchTo("b");
+	const result = source.switchTo("b", "replace");
 	assert.deepEqual(actions, ["/b/Same"]);
 	target.receive(false);
 	assert.deepEqual(actions, ["/b/Same", "bounds"]);
@@ -159,7 +179,54 @@ test("a cold destination opens and prepares its geometry before acknowledging re
 	assert.deepEqual(actions, ["/b/Same", "bounds", "close 1"]);
 });
 
-test("keeping windows open prepares and focuses the target before hiding the source, including on return", async () => {
+for (const [mode, alreadyOpen] of [
+	["replace", false],
+	["keep-open", true],
+]) {
+	test(`${mode} replaces the source when the destination has no running plugin`, async () => {
+		const { win, desktop, actions } = fixture();
+		const normalizationStarted = Promise.withResolvers();
+		const finishNormalization = Promise.withResolvers();
+		const source = new Handoff(
+			win,
+			{
+				...desktop,
+				list: () => [vaults[0], { ...vaults[1], open: alreadyOpen }],
+				async findWindowWithoutPlugin(id) {
+					assert.equal(id, "b");
+					assert.deepEqual(actions, alreadyOpen ? [] : ["/b/Same"]);
+					return 2;
+				},
+				async normalizeWindow(windowId) {
+					assert.equal(windowId, 2);
+					normalizationStarted.resolve();
+					await finishNormalization.promise;
+				},
+				setBounds(receivedBounds, windowId) {
+					assert.deepEqual(receivedBounds, bounds);
+					assert.equal(windowId, 2);
+					actions.push("bounds");
+				},
+			},
+			"a",
+			250,
+		);
+		const result = source.switchTo("b", mode);
+		await Promise.race([normalizationStarted.promise, result]);
+		assert.deepEqual(actions, alreadyOpen ? [] : ["/b/Same"]);
+		assert.equal(desktop.isWindowVisible(1), true);
+		finishNormalization.resolve();
+		assert.equal(await result, "ok");
+		assert.deepEqual(
+			actions,
+			alreadyOpen
+				? ["bounds", "/b/Same", "close 1"]
+				: ["/b/Same", "bounds", "close 1"],
+		);
+	});
+}
+
+test("the default mode focuses the target before hiding the source, including on return", async () => {
 	const { win, desktop, actions } = fixture();
 	const focusChecked = Promise.withResolvers();
 	let targetFocused = false;
@@ -176,7 +243,7 @@ test("keeping windows open prepares and focuses the target before hiding the sou
 	);
 	const target = new Handoff(win, { ...desktop, windowId: 2 }, "b");
 	win.addEventListener("storage", () => target.receive(false));
-	const result = source.switchTo("b", "keep-open");
+	const result = source.switchTo("b");
 	assert.deepEqual(actions, ["bounds"]);
 	target.receive(true);
 	assert.equal(
@@ -197,18 +264,223 @@ test("keeping windows open prepares and focuses the target before hiding the sou
 	assert.deepEqual(actions, ["bounds", "show 1", "hide 2", "restore 2"]);
 });
 
-test("a target that cannot take focus leaves the source visible", async () => {
+for (const mode of ["keep-open", "replace"]) {
+	test(`${mode} leaves the source visible when the target cannot take focus`, async () => {
+		const { win, desktop, actions } = fixture();
+		const source = new Handoff(
+			win,
+			{ ...desktop, isWindowFocused: () => false },
+			"a",
+			25,
+		);
+		const target = new Handoff(win, { ...desktop, windowId: 2 }, "b");
+		win.addEventListener("storage", () => target.receive(true));
+		assert.equal(await source.switchTo("b", mode), "failed");
+		assert.deepEqual(actions, ["bounds", "/b/Same"]);
+	});
+}
+
+test("replace requests focus again for a cold destination before closing the source", async () => {
 	const { win, desktop, actions } = fixture();
+	let openCount = 0;
 	const source = new Handoff(
 		win,
-		{ ...desktop, isWindowFocused: () => false },
+		{
+			...desktop,
+			list: () => [vaults[0], { ...vaults[1], open: false }],
+			open() {
+				actions.push(++openCount === 1 ? "open" : "focus");
+			},
+			isWindowFocused: () => openCount === 2,
+		},
 		"a",
-		25,
 	);
 	const target = new Handoff(win, { ...desktop, windowId: 2 }, "b");
+	const result = source.switchTo("b", "replace");
+	await target.receive(true);
+	assert.equal(await result, "ok");
+	assert.deepEqual(actions, ["open", "bounds", "focus", "close 1"]);
+});
+
+function expandedTarget(
+	actions,
+	{
+		fullscreen = false,
+		minimized = false,
+		visibleWhenMinimized = false,
+	} = {},
+) {
+	const native = new EventEmitter();
+	let maximized = true;
+	let currentBounds = { ...bounds, width: 1200 };
+	return Object.assign(native, {
+		id: 2,
+		getBounds: () => currentBounds,
+		isDestroyed: () => false,
+		isVisible: () => !minimized || visibleWhenMinimized,
+		isFocused: () => true,
+		isMaximized: () => maximized,
+		isMinimized: () => minimized,
+		isFullScreen: () => fullscreen,
+		setBounds(next) {
+			assert.equal(fullscreen || maximized || minimized, false);
+			actions.push("bounds");
+			currentBounds = next;
+		},
+		setFullScreen(value) {
+			assert.equal(value, false);
+			actions.push("exit fullscreen");
+		},
+		finishFullscreenExit() {
+			fullscreen = false;
+			native.emit("leave-full-screen");
+		},
+		restore() {
+			actions.push("restore");
+		},
+		finishRestore() {
+			minimized = false;
+			native.emit("restore");
+		},
+		unmaximize() {
+			actions.push("unmaximize");
+			maximized = false;
+			native.emit("unmaximize");
+		},
+	});
+}
+
+function connectTarget(native) {
+	return connectDesktop({
+		electron: {
+			ipcRenderer: { sendSync: () => ({ id: "b" }) },
+			remote: { BrowserWindow: { fromId: () => null } },
+		},
+		electronWindow: native,
+	});
+}
+
+test("an expanded cold target waits for its layout before transferring geometry", async () => {
+	const { win, desktop, actions } = fixture();
+	const native = expandedTarget(actions);
+	const source = new Handoff(
+		win,
+		{ ...desktop, list: () => [vaults[0], { ...vaults[1], open: false }] },
+		"a",
+	);
+	const target = new Handoff(win, connectTarget(native), "b");
+	const result = source.switchTo("b", "keep-open");
+	target.receive(false);
+	assert.deepEqual(actions, ["/b/Same"]);
+	target.receive(true);
+	assert.equal(await result, "ok");
+	assert.deepEqual(actions, ["/b/Same", "unmaximize", "bounds", "hide 1"]);
+});
+
+test("a fullscreen target transfers geometry only after leaving fullscreen", async () => {
+	const { win, desktop, actions } = fixture();
+	const native = expandedTarget(actions, { fullscreen: true });
+	const source = new Handoff(win, desktop, "a");
+	const target = new Handoff(win, connectTarget(native), "b");
+	const result = source.switchTo("b", "keep-open");
+	target.receive(true);
+	target.receive(true);
+	assert.deepEqual(actions, ["exit fullscreen"]);
+	assert.equal(desktop.isWindowVisible(1), true);
+	native.finishFullscreenExit();
+	assert.equal(await result, "ok");
+	assert.deepEqual(actions, [
+		"exit fullscreen",
+		"unmaximize",
+		"bounds",
+		"/b/Same",
+		"hide 1",
+	]);
+});
+
+test("a fullscreen transition that times out leaves the source visible", async () => {
+	const { win, desktop, actions } = fixture();
+	const native = expandedTarget(actions, { fullscreen: true });
+	const source = new Handoff(win, desktop, "a", 35);
+	const target = new Handoff(win, connectTarget(native), "b");
 	win.addEventListener("storage", () => target.receive(true));
-	assert.equal(await source.switchTo("b", "keep-open"), "failed");
-	assert.deepEqual(actions, ["bounds", "/b/Same"]);
+	assert.equal(await source.switchTo("b", "keep-open"), "timeout");
+	await new Promise((resolve) => setTimeout(resolve, 10));
+	assert.equal(native.listenerCount("leave-full-screen"), 0);
+	assert.equal(native.listenerCount("closed"), 0);
+	native.finishFullscreenExit();
+	assert.deepEqual(actions, ["exit fullscreen"]);
+	assert.equal(desktop.isWindowVisible(1), true);
+});
+
+test("a minimized target with the plugin restores before bounds and focus", async () => {
+	const { win, desktop, actions } = fixture();
+	const native = expandedTarget(actions, {
+		minimized: true,
+		fullscreen: true,
+	});
+	const source = new Handoff(win, desktop, "a", 500);
+	const target = new Handoff(win, connectTarget(native), "b");
+	const result = source.switchTo("b", "keep-open");
+	const preparation = target.receive(true);
+	assert.deepEqual(actions, ["restore"]);
+	native.finishRestore();
+	await Promise.resolve();
+	assert.deepEqual(actions, ["restore", "exit fullscreen"]);
+	native.finishFullscreenExit();
+	await preparation;
+	assert.equal(await result, "ok");
+	assert.deepEqual(actions, [
+		"restore",
+		"exit fullscreen",
+		"unmaximize",
+		"bounds",
+		"/b/Same",
+		"hide 1",
+	]);
+});
+
+test("a target restored before the listener is attached still accepts the handoff", async () => {
+	const { win, desktop, actions } = fixture();
+	const native = expandedTarget(actions, { minimized: true });
+	const once = native.once;
+	native.once = function (event, listener) {
+		if (event === "restore") {
+			native.finishRestore();
+		}
+		return once.call(this, event, listener);
+	};
+	const source = new Handoff(win, desktop, "a", 150);
+	const target = new Handoff(win, connectTarget(native), "b");
+	win.addEventListener("storage", () => void target.receive(true));
+	assert.equal(await source.switchTo("b", "keep-open"), "ok");
+	assert.deepEqual(actions, ["unmaximize", "bounds", "/b/Same", "hide 1"]);
+});
+
+test("switching to a vault without the plugin closes the source and its hidden predecessors", async () => {
+	const { win, desktop, actions } = fixture();
+	const thirdVault = { id: "c", name: "Third", path: "/c/Third", open: true };
+	const first = new Handoff(win, desktop, "a");
+	const second = new Handoff(
+		win,
+		{
+			...desktop,
+			windowId: 2,
+			list: () => [...vaults, thirdVault],
+			findWindowWithoutPlugin: async (id) => (id === "c" ? 3 : undefined),
+		},
+		"b",
+	);
+	win.addEventListener(
+		"storage",
+		(event) => void second.receive(true, event),
+	);
+
+	assert.equal(await first.switchTo("b", "keep-open"), "ok");
+	assert.equal(desktop.isWindowVisible(1), false);
+	actions.length = 0;
+	assert.equal(await second.switchTo("c", "keep-open"), "ok");
+	assert.deepEqual(actions, ["bounds", "/c/Third", "close 2", "close 1"]);
 });
 
 test("closing the active vault closes every vault hidden by preceding switches", async () => {
@@ -289,17 +561,17 @@ test("an older destination can replace the source but cannot leave it hidden", a
 	const { win, desktop, actions } = fixture();
 	const source = new Handoff(win, desktop, "a");
 	win.addEventListener("storage", ({ key, newValue }) => {
-		if (key === "vault-switcher-bar:request") {
+		if (key === "vault-dock:request") {
 			const { id } = JSON.parse(newValue);
 			win.localStorage.setItem(
-				"vault-switcher-bar:reply",
+				"vault-dock:reply",
 				JSON.stringify({ id, status: "ready", windowId: 2 }),
 			);
 		}
 	});
 	assert.equal(await source.switchTo("b", "keep-open"), "failed");
 	assert.deepEqual(actions, []);
-	assert.equal(await source.switchTo("b"), "ok");
+	assert.equal(await source.switchTo("b", "replace"), "ok");
 	assert.deepEqual(actions, ["/b/Same", "close 1"]);
 });
 
@@ -363,4 +635,253 @@ test("open or focus uses the current instance before falling back to an encoded 
 		["vault-open", target.path, false],
 		"obsidian://open?vault=b%20%26next%3Dother",
 	]);
+});
+
+function vaultRenderer(
+	appId,
+	{
+		layoutReady = true,
+		plugin = null,
+		enabled = false,
+		restricted = false,
+		href = vaultPage,
+		onProbe,
+	} = {},
+) {
+	const window = {};
+	window.app = {
+		appId,
+		workspace: {
+			layoutReady,
+			containerEl: { ownerDocument: { defaultView: window } },
+		},
+		plugins: {
+			getPlugin: (id) => (id === "vault-dock" ? plugin : null),
+			enabledPlugins: new Set(enabled ? ["vault-dock"] : []),
+			isEnabled: () => !restricted,
+		},
+	};
+	return {
+		getURL: () => href,
+		async executeJavaScript(code) {
+			onProbe?.();
+			return runInNewContext(code, { window, location: { href } });
+		},
+	};
+}
+
+test("the native fallback finds the ready vault even if another candidate hangs", async () => {
+	const targetId = 'b"\\';
+	const probed = [];
+	const candidate = (
+		id,
+		appId,
+		layoutReady,
+		plugin,
+		href = vaultPage,
+		enabled = false,
+	) => ({
+		id,
+		isDestroyed: () => false,
+		isVisible: () => true,
+		isMinimized: () => false,
+		webContents: vaultRenderer(appId, {
+			layoutReady,
+			plugin,
+			enabled,
+			href,
+			onProbe: () => probed.push(id),
+		}),
+	});
+	const candidates = [
+		candidate(2, targetId, true, null, "https://example.com"),
+		candidate(3, "same-name-other-vault", true, null),
+		candidate(4, targetId, false, null),
+		candidate(5, targetId, true, {}),
+		candidate(9, targetId, true, null, vaultPage, true),
+		candidate(6, targetId, true, null),
+		candidate(8, "same-name-other-vault", true, null),
+	];
+	const stalled = Promise.withResolvers();
+	let stalledChecks = 0;
+	candidates[1].webContents.executeJavaScript = () => {
+		stalledChecks++;
+		return stalled.promise;
+	};
+	const desktop = connectDesktop({
+		electron: {
+			ipcRenderer: { sendSync: () => ({ id: "a" }) },
+			remote: {
+				BrowserWindow: {
+					fromId: () => null,
+					getAllWindows: () => candidates,
+				},
+			},
+		},
+		electronWindow: {
+			id: 1,
+			getBounds: () => bounds,
+			setBounds() {},
+			isMaximized: () => false,
+			isMinimized: () => false,
+			isFullScreen: () => false,
+		},
+	});
+	const signal = new AbortController().signal;
+	assert.equal(
+		await Promise.race([
+			desktop.findWindowWithoutPlugin(targetId, Date.now() + 500, signal),
+			new Promise((resolve) => setTimeout(() => resolve("stalled"), 250)),
+		]),
+		6,
+	);
+	assert.deepEqual(probed, [4, 5, 9, 6, 8]);
+	assert.equal(stalledChecks, 1);
+	stalled.resolve(false);
+
+	candidates.splice(
+		0,
+		candidates.length,
+		candidate(9, targetId, true, null, vaultPage, true),
+		{
+			...candidate(10, targetId, true, null),
+			webContents: vaultRenderer(targetId, {
+				enabled: true,
+				restricted: true,
+			}),
+		},
+	);
+	assert.equal(
+		await desktop.findWindowWithoutPlugin(
+			targetId,
+			Date.now() + 200,
+			signal,
+		),
+		10,
+	);
+
+	candidates.length = 0;
+	const waiting = Promise.withResolvers();
+	const pending = candidate(7, targetId, true, null);
+	let checks = 0;
+	pending.webContents.executeJavaScript = () => {
+		checks++;
+		return waiting.promise;
+	};
+	candidates.push(pending);
+	const controller = new AbortController();
+	const search = desktop.findWindowWithoutPlugin(
+		targetId,
+		Date.now() + 500,
+		controller.signal,
+	);
+	await new Promise((resolve) => setTimeout(resolve, 130));
+	controller.abort();
+	assert.equal(
+		await Promise.race([
+			search,
+			new Promise((resolve) =>
+				setTimeout(() => resolve("still running"), 50),
+			),
+		]),
+		undefined,
+	);
+	const nextSearch = desktop.findWindowWithoutPlugin(
+		targetId,
+		Date.now() + 500,
+		signal,
+	);
+	assert.equal(checks, 1);
+	waiting.resolve(true);
+	assert.equal(await nextSearch, 7);
+	assert.equal(checks, 2);
+});
+
+function fallbackSwitch({ visibleWhenMinimized, timeout }) {
+	const { win, actions } = fixture();
+	const native = expandedTarget(actions, {
+		minimized: true,
+		visibleWhenMinimized,
+	});
+	const started = Promise.withResolvers();
+	const restore = native.restore;
+	native.restore = () => {
+		restore();
+		started.resolve();
+	};
+	native.webContents = vaultRenderer("b");
+	let focused = false;
+	native.isFocused = () => focused;
+	const desktop = connectDesktop({
+		close: () => actions.push("close source"),
+		electron: {
+			ipcRenderer: {
+				sendSync(channel) {
+					if (channel === "vault") {
+						return { id: "a" };
+					}
+					if (channel === "vault-list") {
+						return { b: { path: "/b/Same", open: true } };
+					}
+					assert.equal(channel, "vault-open");
+					actions.push("focus");
+					focused = true;
+					return true;
+				},
+			},
+			remote: {
+				BrowserWindow: {
+					fromId: (id) => (id === native.id ? native : null),
+					getAllWindows: () => [native],
+				},
+			},
+		},
+		electronWindow: {
+			id: 1,
+			getBounds: () => bounds,
+			setBounds() {},
+			isMaximized: () => false,
+			isMinimized: () => false,
+			isFullScreen: () => false,
+		},
+	});
+	const source = new Handoff(win, desktop, "a", timeout);
+	return {
+		native,
+		actions,
+		started: started.promise,
+		result: source.switchTo("b", "keep-open"),
+	};
+}
+
+for (const visibleWhenMinimized of [false, true]) {
+	test(`a minimized target without the plugin restores before bounds and focus (visible=${visibleWhenMinimized})`, async () => {
+		const { native, actions, started, result } = fallbackSwitch({
+			visibleWhenMinimized,
+			timeout: 500,
+		});
+		assert.equal(await Promise.race([started, result]), undefined);
+		assert.deepEqual(actions, ["restore"]);
+		native.finishRestore();
+		assert.equal(await result, "ok");
+		assert.deepEqual(actions, [
+			"restore",
+			"unmaximize",
+			"bounds",
+			"focus",
+			"close source",
+		]);
+	});
+}
+
+test("a restore timeout leaves the source open and ignores a late restore", async () => {
+	const { native, actions, result } = fallbackSwitch({
+		visibleWhenMinimized: false,
+		timeout: 100,
+	});
+	assert.equal(await result, "timeout");
+	assert.equal(native.listenerCount("restore"), 0);
+	assert.equal(native.listenerCount("closed"), 0);
+	native.finishRestore();
+	assert.deepEqual(actions, ["restore"]);
 });

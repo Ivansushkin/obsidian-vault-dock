@@ -1,70 +1,79 @@
-# Vault Switcher Bar
+# Obsidian Vault Dock
 
-Десктопный плагин для Obsidian. Добавляет плитки зарегистрированных vault’ов
-вверху левой боковой панели. Через шестерёнку можно назначить, заменить и
-сбросить картинки плиток.
+[Русский](README_RU.md)
 
-В настройках Vault Switcher Bar выбери **Switching mode**.
+Obsidian Vault Dock adds a panel with tiles for your registered Obsidian vaults.
+Click a tile to open its vault or bring its window into focus.
 
-- **Replace window** переносит размер и позицию окна и закрывает исходное
-  окно после готовности целевого. Это режим по умолчанию.
-- **Keep windows open** также переносит окно, но скрывает исходное, сохраняя
-  загруженный редактор и вкладки для возврата.
-- **Open or focus vault** открывает или фокусирует целевой vault в его
-  собственной позиции и оставляет исходное окно открытым.
+**Requirements** · Obsidian Desktop 1.15.0 or later.
 
-Для первых двух режимов включи плагин в обоих vault’ах. При холодном открытии
-Obsidian может кратко показать целевое окно в его прежней позиции.
+**Interface languages** · English · Русский · Қазақша · Беларуская · O‘zbekcha ·
+简体中文 · 繁體中文 · 日本語. The plugin follows Obsidian’s language by default
+and uses English if that language is unavailable. You can choose a language in
+the plugin settings.
 
-По умолчанию режим переключения и картинки плиток общие для профиля Obsidian.
-Выключи **Share settings across vaults**, чтобы настроить каждый vault отдельно.
-При повторном включении общими станут режим и картинки текущего vault’а.
+## Features
 
-В пункте **Язык интерфейса** можно выбрать английский, русский, казахский,
-белорусский, узбекский, упрощённый или традиционный китайский, а также японский.
-По умолчанию плагин следует языку Obsidian, а для остальных языков использует
-английский. Выбор действует во всех vault’ах текущего профиля.
+- Place the bar below the left sidebar tabs (default), above Obsidian’s built-in
+  vault switcher, or along the left or right edge of the workspace. The vertical
+  bar stays visible when the sidebars are collapsed.
+- Change **Tile size** in the plugin settings or drag the edge of the bar.
+  Turn on **Hide vault labels** for square tiles.
+- Right-click a tile to add, change, or remove its image. Tiles without images
+  show the first two characters of the vault name. Use **Choose color** to set
+  their background and text colors. Applying colors replaces the tile’s image
+  with its initials.
 
-## Разработка
+## Installation
 
-Нужны Node.js 22 и npm.
+1. With Node.js 22 and npm installed, run these commands from the repository
+   directory.
 
-```sh
-npm ci
-npm run check
-npm run dev
-```
+   ```sh
+   npm ci
+   npm run build -- --no-install
+   ```
 
-- `npm run build` проверяет TypeScript и собирает `main.js`, `manifest.json` и
-  `styles.css` в `build/`.
-- `npm run dev` пересобирает эти файлы при изменениях.
-- `npm run check` запускает линтер, проверку форматирования, сборку и тесты
-  артефактов. Та же команда запускается в GitHub Actions.
+2. In your vault, create `.obsidian/plugins/vault-dock/`.
+3. Copy `main.js`, `manifest.json`, and `styles.css` from `build/` into that folder.
+4. Restart Obsidian and enable **Obsidian Vault Dock** under
+   **Settings → Community plugins**.
 
-Чтобы сборка сразу копировала плагин в тестовые vault’ы, скопируй `.env.example`
-в `.env` и укажи абсолютные пути к каталогам плагина. Запиши каждый путь с
-новой строки внутри одной пары кавычек.
+If you installed a build under the old `vault-switcher-bar` ID, disable it in
+every vault first. Remove its old installation folder after installing and
+enabling `vault-dock` in each vault. The plugin uses the existing settings
+and tile images from the same Obsidian profile.
 
-```dotenv
-VAULT_SWITCHER_PLUGIN_PATHS="
-/path/to/test vault/.obsidian/plugins/vault-switcher-bar
-/path/to/second vault/.obsidian/plugins/vault-switcher-bar
-"
-```
+## First switch
 
-`npm run build` и `npm run dev` копируют три файла сборки в каждый указанный
-каталог. Если список пуст, сборка использует прежний `VAULT_SWITCHER_PLUGIN_PATH`,
-если он задан. Без путей сборка остаётся в `build/`. `.env` игнорируется Git.
-Проверки и CI собирают артефакты локально, пропуская установку из `.env`.
+Install and enable the plugin in two vaults, then click the other vault’s tile
+to switch. Use **Switching mode** in the plugin settings to choose how the
+windows behave.
 
-Для разовой установки открой тестовый vault в Obsidian и передай путь явно.
+| Mode                              | Current window                                  | Destination window                                    |
+| --------------------------------- | ----------------------------------------------- | ----------------------------------------------------- |
+| **Hide current window** (default) | Hides and keeps its tabs ready for your return. | Takes the current window’s size and position.         |
+| **Close current window**          | Closes once the destination window is ready.    | Takes the current window’s size and position.         |
+| **Keep both windows open**        | Stays visible.                                  | Opens or receives focus at its own size and position. |
 
-```sh
-npm run install:dev -- --vault "/path/to/test vault"
-```
+In **Hide current window** mode, the current window closes if the plugin is
+disabled or missing in the destination vault. When opening a closed vault,
+Obsidian may briefly show its window at its previous position.
 
-`--vault` имеет приоритет над `.env` и работает также с `npm run build` и
-`npm run dev`. После копирования включи или перезагрузи плагин в настройках
-Obsidian.
+## Shared settings
 
-[Контекст разработки и ручная проверка](docs/development.md)
+The switching mode and tile images are shared across the Obsidian profile by
+default. Turn off **Share settings across vaults** to configure them separately.
+Turning it back on makes the current vault’s mode and images the shared settings.
+
+The interface language, bar position, tile size, label visibility, and
+tile colors always apply across the profile.
+
+## Development
+
+See the [development guide (in Russian)](docs/development.md) for build commands,
+installation into test vaults, and manual checks.
+
+## License
+
+[MIT](LICENSE).
