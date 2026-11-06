@@ -256,7 +256,13 @@ export class Bar {
 			});
 			tile.addEventListener("click", () => this.onSelect(vault.id));
 			tile.addEventListener("contextmenu", (event) => {
-				this.showImageMenu(event, vault, image !== undefined, colors);
+				this.showImageMenu(
+					event,
+					vault,
+					tile,
+					image !== undefined,
+					colors,
+				);
 			});
 		}
 
@@ -390,6 +396,7 @@ export class Bar {
 	private showImageMenu(
 		event: MouseEvent,
 		vault: RegisteredVault,
+		tile: HTMLButtonElement,
 		hasImage: boolean,
 		colors?: PlaceholderColors,
 	): void {
@@ -426,7 +433,7 @@ export class Bar {
 		menu.addItem((item) => {
 			item.setTitle(this.t("chooseColor"))
 				.setDisabled(saving || this.pickerTarget?.id === id)
-				.onClick(() => this.chooseColor(target, name, colors));
+				.onClick(() => this.chooseColor(target, tile, name, colors));
 		});
 		menu.showAtMouseEvent(event);
 	}
@@ -434,6 +441,7 @@ export class Bar {
 	/** Keep the draft tied to the tile and the scope shown when the menu opened. */
 	private chooseColor(
 		target: TileTarget,
+		tile: HTMLButtonElement,
 		name: string,
 		colors?: PlaceholderColors,
 	): void {
@@ -442,7 +450,16 @@ export class Bar {
 		}
 		this.colorModal = new PlaceholderColorModal(
 			this.app,
-			getInitials(name),
+			{
+				tile,
+				initials: getInitials(name),
+				scale: this.element.style.getPropertyValue(
+					"--vault-switcher-tile-scale",
+				),
+				hideLabel: this.tiles.classList.contains(
+					"vault-dock-hide-labels",
+				),
+			},
 			colors,
 			this.t,
 			(draft) => void this.changeColors(target, draft),

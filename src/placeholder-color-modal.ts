@@ -7,13 +7,20 @@ import {
 	type PlaceholderColors,
 } from "./placeholder-colors";
 
+type TilePreview = {
+	tile: HTMLButtonElement;
+	initials: string;
+	scale: string;
+	hideLabel: boolean;
+};
+
 /** Preview a draft color pair before applying it to a vault tile. */
 export class PlaceholderColorModal extends Modal {
 	private draft: PlaceholderColors;
 
 	constructor(
 		app: App,
-		private readonly initials: string,
+		private readonly tilePreview: TilePreview,
 		colors: PlaceholderColors | undefined,
 		private readonly t: Translate,
 		private readonly apply: (colors: PlaceholderColors) => void,
@@ -27,14 +34,12 @@ export class PlaceholderColorModal extends Modal {
 		const { contentEl, t } = this;
 		this.setTitle(t("chooseColor"));
 		contentEl.createEl("p", { text: t("placeholderColorDescription") });
-		const preview = contentEl.createDiv({
-			cls: "vault-switcher-color-preview",
-			text: this.initials,
-			attr: { "aria-hidden": "true" },
-		});
+		const picture = this.createPreview();
 		const updatePreview = () => {
-			preview.style.backgroundColor = this.draft.background;
-			preview.style.color = this.draft.text;
+			if (picture) {
+				picture.style.backgroundColor = this.draft.background;
+				picture.style.color = this.draft.text;
+			}
 		};
 		updatePreview();
 		this.addPalette(
@@ -59,6 +64,25 @@ export class PlaceholderColorModal extends Modal {
 						this.apply(this.draft);
 					}),
 			);
+	}
+
+	/** Reuse the selected tile’s markup, showing initials in place of any image. */
+	private createPreview(): HTMLElement | null {
+		const { tile, initials, scale, hideLabel } = this.tilePreview;
+		const preview = this.contentEl.createDiv(
+			"vault-dock vault-switcher-color-preview",
+		);
+		preview.inert = true;
+		preview.style.setProperty("--vault-switcher-tile-scale", scale);
+		const row = preview.createDiv();
+		row.classList.toggle("vault-dock-hide-labels", hideLabel);
+		const copy = row.appendChild(tile.cloneNode(true) as HTMLButtonElement);
+		const picture = copy.querySelector<HTMLElement>(".vault-dock-picture");
+		if (picture) {
+			picture.classList.add("vault-dock-initials");
+			picture.textContent = initials;
+		}
+		return picture;
 	}
 
 	/** Group each palette into native radio controls for keyboard navigation. */

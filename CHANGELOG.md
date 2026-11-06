@@ -8,6 +8,10 @@
   mode and uses the same shared or per-vault setting as Vault Dock.
 - The switching mode setting now explains that it also affects the built-in
   switcher.
+- The color picker preview matches the selected tile’s size and label
+  visibility.
+- Added four animated demos to both READMEs covering vault switching, dock
+  placement, tile resizing, and tile images.
 
 ## 0.1.0
 

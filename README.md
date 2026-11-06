@@ -24,6 +24,24 @@ the plugin settings.
   their background and text colors. Applying colors replaces the tile’s image
   with its initials.
 
+## Demos
+
+### Switching vaults
+
+![Switching between vaults from the dock](docs/media/vault-switching.gif)
+
+### Moving the dock
+
+![Changing the dock position from its context menu](docs/media/dock-placement.gif)
+
+### Resizing tiles
+
+![Dragging the dock edge to resize tiles in vertical and horizontal positions](docs/media/tile-resize.gif)
+
+### Adding a tile image
+
+![Selecting a tile image from the context menu and seeing it on the dock](docs/media/tile-image.gif)
+
 ## Installation
 
 1. With Node.js 22 and npm installed, run these commands from the repository

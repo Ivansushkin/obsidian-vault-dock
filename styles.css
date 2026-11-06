@@ -207,15 +207,11 @@ body.is-translucent:not(.is-fullscreen) .vault-dock::before {
 	font-weight: var(--font-semibold);
 }
 
-.vault-switcher-color-preview {
-	display: grid;
-	width: var(--size-4-16);
-	height: var(--size-4-16);
+.vault-dock.vault-switcher-color-preview {
+	justify-content: center;
 	margin: var(--size-4-4) auto;
-	border-radius: var(--radius-s);
-	font-size: var(--font-ui-medium);
-	font-weight: var(--font-semibold);
-	place-items: center;
+	padding: 0;
+	border: 0;
 }
 
 .vault-switcher-color-palette {
