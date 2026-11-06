@@ -10,6 +10,11 @@
   switcher.
 - The color picker preview matches the selected tile’s size and label
   visibility.
+- Tiles with labels are 15% narrower, with bolder text and more space below
+  the icon. Labels wrap to two lines, and the horizontal dock grows as needed
+  while keeping icons aligned along the top.
+- Show or hide tile labels from the dock’s position menu. The toggle uses the
+  same setting as the plugin settings tab.
 - Added four animated demos to both READMEs covering vault switching, dock
   placement, tile resizing, and tile images.
 
