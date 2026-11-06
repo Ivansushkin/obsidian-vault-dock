@@ -1,4 +1,4 @@
-# Разработка Obsidian Vault Dock
+# Разработка Vault Dock
 
 ТЗ и результаты прототипа хранятся в проекте `Obsidian Vault Bar` в Obsidian
 vault `life-balance`. Прототип внутри Yandex Disk Sync был временным.

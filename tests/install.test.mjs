@@ -52,7 +52,7 @@ test("the local build installs into every plugin directory configured in .env", 
 			stdio: "pipe",
 		});
 
-	const installLog = `Installed Obsidian Vault Dock to ${pluginPath}`;
+	const installLog = `Installed Vault Dock to ${pluginPath}`;
 	assert.ok(build().includes(installLog));
 	rmSync(pluginPath, { recursive: true });
 
@@ -76,10 +76,10 @@ test("the local build installs into every plugin directory configured in .env", 
 				readFileSync(join(root, "build", file)),
 			);
 		}
-		assert.ok(output.includes(`Installed Obsidian Vault Dock to ${path}`));
+		assert.ok(output.includes(`Installed Vault Dock to ${path}`));
 		rmSync(path, { recursive: true });
 	}
-	assert.ok(!build("--no-install").includes("Installed Obsidian Vault Dock"));
+	assert.ok(!build("--no-install").includes("Installed Vault Dock"));
 	assert.ok(pluginPaths.every((path) => !existsSync(path)));
 
 	const explicitVault = join(root, "explicit vault");
@@ -130,14 +130,10 @@ test("a failed installation reports the destination and still installs into the 
 			);
 		}
 		assert.ok(
-			result.stdout.includes(
-				`Installed Obsidian Vault Dock to ${destination}`,
-			),
+			result.stdout.includes(`Installed Vault Dock to ${destination}`),
 		);
 	}
-	assert.ok(
-		!result.stdout.includes(`Installed Obsidian Vault Dock to ${broken}`),
-	);
+	assert.ok(!result.stdout.includes(`Installed Vault Dock to ${broken}`));
 	assert.ok(result.stderr.includes(broken));
 	assert.match(result.stderr, /partially updated/u);
 });

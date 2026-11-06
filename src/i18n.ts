@@ -31,7 +31,7 @@ const en = {
 	systemLanguage: "System default",
 	switchingMode: "Switching mode",
 	switchingModeDescription:
-		"Important. This mode also applies to Obsidian’s built-in vault switcher. A hidden window keeps its tabs. If Obsidian Vault Dock is inactive in the destination vault, the current window closes instead of being hidden.",
+		"Important. This mode also applies to Obsidian’s built-in vault switcher. A hidden window keeps its tabs. If Vault Dock is inactive in the destination vault, the current window closes instead of being hidden.",
 	closeCurrentWindow: "Close current window",
 	hideCurrentWindow: "Hide current window",
 	keepBothWindowsOpen: "Keep both windows open",
@@ -159,9 +159,9 @@ const messages: Record<Language, Messages> = {
 		switchFailed:
 			"Не удалось переключить хранилище в текущем состоянии окна.",
 		saveSettingsFailed:
-			"Не удалось сохранить настройки Obsidian Vault Dock. Попробуйте снова.",
+			"Не удалось сохранить настройки Vault Dock. Попробуйте снова.",
 		settingsLoading:
-			"Настройки Obsidian Vault Dock ещё загружаются. Попробуйте снова.",
+			"Настройки Vault Dock ещё загружаются. Попробуйте снова.",
 		invalidImage: "Формат или размер выбранной картинки не поддерживается.",
 		saveImageFailed:
 			"Не удалось обновить картинку хранилища. Попробуйте снова.",
@@ -230,9 +230,9 @@ const messages: Record<Language, Messages> = {
 		switchFailed:
 			"Терезенің ағымдағы күйінде қойманы ауыстыру мүмкін болмады.",
 		saveSettingsFailed:
-			"Obsidian Vault Dock баптауларын сақтау мүмкін болмады. Қайталап көріңіз.",
+			"Vault Dock баптауларын сақтау мүмкін болмады. Қайталап көріңіз.",
 		settingsLoading:
-			"Obsidian Vault Dock баптаулары әлі жүктелуде. Қайталап көріңіз.",
+			"Vault Dock баптаулары әлі жүктелуде. Қайталап көріңіз.",
 		invalidImage:
 			"Таңдалған суреттің пішімі немесе өлшемі қолдау таппайды.",
 		saveImageFailed:
@@ -302,9 +302,9 @@ const messages: Record<Language, Messages> = {
 		switchBusy: "Сховішча ўжо пераключаецца.",
 		switchFailed: "Не ўдалося пераключыць сховішча ў бягучым стане акна.",
 		saveSettingsFailed:
-			"Не ўдалося захаваць налады Obsidian Vault Dock. Паспрабуйце зноў.",
+			"Не ўдалося захаваць налады Vault Dock. Паспрабуйце зноў.",
 		settingsLoading:
-			"Налады Obsidian Vault Dock яшчэ загружаюцца. Паспрабуйце зноў.",
+			"Налады Vault Dock яшчэ загружаюцца. Паспрабуйце зноў.",
 		invalidImage: "Фармат або памер выбранай выявы не падтрымліваецца.",
 		saveImageFailed:
 			"Не ўдалося абнавіць выяву сховішча. Паспрабуйце зноў.",
@@ -374,9 +374,9 @@ const messages: Record<Language, Messages> = {
 		switchBusy: "Ombor almashtirilmoqda.",
 		switchFailed: "Oynaning joriy holatida omborni almashtirib bo‘lmadi.",
 		saveSettingsFailed:
-			"Obsidian Vault Dock sozlamalarini saqlab bo‘lmadi. Qayta urinib ko‘ring.",
+			"Vault Dock sozlamalarini saqlab bo‘lmadi. Qayta urinib ko‘ring.",
 		settingsLoading:
-			"Obsidian Vault Dock sozlamalari hali yuklanmoqda. Qayta urinib ko‘ring.",
+			"Vault Dock sozlamalari hali yuklanmoqda. Qayta urinib ko‘ring.",
 		invalidImage:
 			"Tanlangan rasm formati yoki hajmi qo‘llab-quvvatlanmaydi.",
 		saveImageFailed:
@@ -440,8 +440,8 @@ const messages: Record<Language, Messages> = {
 		switchTimeout: "切换仓库超时，请重试。",
 		switchBusy: "正在切换仓库，请稍候。",
 		switchFailed: "在当前窗口状态下无法切换仓库。",
-		saveSettingsFailed: "无法保存 Obsidian Vault Dock 的设置。请重试。",
-		settingsLoading: "Obsidian Vault Dock 的设置仍在加载，请稍后重试。",
+		saveSettingsFailed: "无法保存 Vault Dock 的设置。请重试。",
+		settingsLoading: "Vault Dock 的设置仍在加载，请稍后重试。",
 		invalidImage: "不支持所选图片的格式，或图片文件过大。",
 		saveImageFailed: "无法更新仓库图标。请重试。",
 	},
@@ -504,8 +504,8 @@ const messages: Record<Language, Messages> = {
 		switchTimeout: "切換儲存庫逾時，請再試一次。",
 		switchBusy: "正在切換儲存庫，請稍候。",
 		switchFailed: "在目前的視窗狀態下無法切換儲存庫。",
-		saveSettingsFailed: "無法儲存 Obsidian Vault Dock 的設定。請再試一次。",
-		settingsLoading: "Obsidian Vault Dock 的設定仍在載入，請稍後再試。",
+		saveSettingsFailed: "無法儲存 Vault Dock 的設定。請再試一次。",
+		settingsLoading: "Vault Dock 的設定仍在載入，請稍後再試。",
 		invalidImage: "不支援所選圖片的格式，或圖片檔案過大。",
 		saveImageFailed: "無法更新儲存庫圖示。請再試一次。",
 	},
@@ -572,9 +572,9 @@ const messages: Record<Language, Messages> = {
 		switchBusy: "保管庫を切り替えています。しばらくお待ちください。",
 		switchFailed: "現在のウィンドウの状態では保管庫を切り替えられません。",
 		saveSettingsFailed:
-			"Obsidian Vault Dockの設定を保存できませんでした。もう一度お試しください。",
+			"Vault Dockの設定を保存できませんでした。もう一度お試しください。",
 		settingsLoading:
-			"Obsidian Vault Dockの設定を読み込み中です。しばらくしてから、もう一度お試しください。",
+			"Vault Dockの設定を読み込み中です。しばらくしてから、もう一度お試しください。",
 		invalidImage:
 			"選択した画像の形式に対応していないか、ファイルサイズが大きすぎます。",
 		saveImageFailed:

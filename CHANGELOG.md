@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0
+
+- Renamed the plugin to Vault Dock for the Obsidian Community directory.
+- Documented how Vault Dock uses the local vault registry and stores tile
+  images and settings.
+- Added manual installation instructions for GitHub Releases.
+
 ## 0.1.1
 
 - Obsidian’s built-in sidebar vault switcher now follows the Vault Dock

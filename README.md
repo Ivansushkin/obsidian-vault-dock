@@ -1,8 +1,8 @@
-# Obsidian Vault Dock
+# Vault Dock
 
 [Русский](README_RU.md)
 
-Obsidian Vault Dock adds a panel with tiles for your registered Obsidian vaults.
+Vault Dock automatically adds a tile for each registered Obsidian vault.
 Click a tile to open its vault or bring its window into focus.
 
 |                                   With labels                                   |                               Without labels                                |
@@ -38,17 +38,11 @@ the plugin settings.
 
 ## Installation
 
-1. With Node.js 22 and npm installed, run these commands from the repository
-   directory.
-
-   ```sh
-   npm ci
-   npm run build -- --no-install
-   ```
-
+1. Download `main.js`, `manifest.json`, and `styles.css` from the latest
+   [GitHub release](https://github.com/Ivansushkin/obsidian-vault-dock/releases).
 2. In your vault, create `.obsidian/plugins/vault-dock/`.
-3. Copy `main.js`, `manifest.json`, and `styles.css` from `build/` into that folder.
-4. Restart Obsidian and enable **Obsidian Vault Dock** under
+3. Copy the three files into that folder.
+4. Restart Obsidian and enable **Vault Dock** under
    **Settings → Community plugins**.
 
 If you installed a build under the old `vault-switcher-bar` ID, disable it in
@@ -84,7 +78,18 @@ Turning it back on makes the current vault’s mode and images the shared settin
 The interface language, bar position, tile size, label visibility, and
 tile colors always apply across the profile.
 
+## Local data
+
+Vault Dock uses Obsidian's desktop vault registry to read the IDs and paths of
+registered vaults and open their windows. When you choose a tile image, the
+plugin reads that file, which can be outside your vaults. It stores a copy of
+the image and the dock settings in the local Obsidian profile. The plugin runs
+offline.
+
 ## Development
+
+To build from source, run `npm ci` with Node.js 22, then run
+`npm run build -- --no-install`. The three installation files are in `build/`.
 
 See the [development guide (in Russian)](docs/development.md) for build commands,
 installation into test vaults, and manual checks.

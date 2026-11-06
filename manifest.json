@@ -1,9 +1,9 @@
 {
 	"id": "vault-dock",
-	"name": "Obsidian Vault Dock",
-	"version": "0.1.1",
+	"name": "Vault Dock",
+	"version": "1.0.0",
 	"minAppVersion": "1.15.0",
-	"description": "Switch between vaults from a bar in the sidebar.",
+	"description": "Open and switch between registered vaults from a customizable dock.",
 	"author": "Ivan Sushkin",
 	"isDesktopOnly": true
 }
