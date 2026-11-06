@@ -352,6 +352,8 @@ function expandedTarget(
 
 function connectTarget(native) {
 	return connectDesktop({
+		setTimeout,
+		clearTimeout,
 		electron: {
 			ipcRenderer: { sendSync: () => ({ id: "b" }) },
 			remote: { BrowserWindow: { fromId: () => null } },
@@ -830,6 +832,10 @@ test("the native fallback finds the ready vault even if another candidate hangs"
 		return stalled.promise;
 	};
 	const desktop = connectDesktop({
+		setTimeout,
+		clearTimeout,
+		setInterval,
+		clearInterval,
 		electron: {
 			ipcRenderer: { sendSync: () => ({ id: "a" }) },
 			remote: {
@@ -935,6 +941,10 @@ function fallbackSwitch({ visibleWhenMinimized, timeout }) {
 	native.isFocused = () => focused;
 	const desktop = connectDesktop({
 		close: () => actions.push("close source"),
+		setTimeout,
+		clearTimeout,
+		setInterval,
+		clearInterval,
 		electron: {
 			ipcRenderer: {
 				sendSync(channel) {

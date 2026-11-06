@@ -96,6 +96,7 @@ function requireNormalWindow(win: NativeWindow): void {
 
 /** Subscribe before requesting a native state change, including synchronous events. */
 function waitForWindowTransition(
+	win: Window,
 	target: NativeWindow,
 	event: WindowTransition,
 	isPending: () => boolean,
@@ -110,7 +111,7 @@ function waitForWindowTransition(
 			return;
 		}
 		const cleanup = () => {
-			clearTimeout(timer);
+			win.clearTimeout(timer);
 			signal.removeEventListener("abort", cancel);
 			try {
 				if (!target.isDestroyed()) {
@@ -129,7 +130,7 @@ function waitForWindowTransition(
 			cleanup();
 			reject(new Error("The window transition was cancelled"));
 		};
-		const timer = setTimeout(cancel, remaining);
+		const timer = win.setTimeout(cancel, remaining);
 		signal.addEventListener("abort", cancel, { once: true });
 		try {
 			target.once(event, complete);
@@ -262,6 +263,7 @@ export function connectDesktop(win: DesktopWindow): Desktop | undefined {
 			}
 			if (target.isMinimized()) {
 				await waitForWindowTransition(
+					win,
 					target,
 					"restore",
 					() => target.isMinimized(),
@@ -272,6 +274,7 @@ export function connectDesktop(win: DesktopWindow): Desktop | undefined {
 			}
 			if (target.isFullScreen()) {
 				await waitForWindowTransition(
+					win,
 					target,
 					"leave-full-screen",
 					() => target.isFullScreen(),
@@ -282,6 +285,7 @@ export function connectDesktop(win: DesktopWindow): Desktop | undefined {
 			}
 			if (target.isMaximized()) {
 				await waitForWindowTransition(
+					win,
 					target,
 					"unmaximize",
 					() => target.isMaximized(),
@@ -327,8 +331,8 @@ export function connectDesktop(win: DesktopWindow): Desktop | undefined {
 				let finished = false;
 				const finish = (id?: number) => {
 					finished = true;
-					clearTimeout(timeout);
-					clearInterval(interval);
+					win.clearTimeout(timeout);
+					win.clearInterval(interval);
 					signal.removeEventListener("abort", cancel);
 					resolve(id);
 				};
@@ -382,8 +386,8 @@ export function connectDesktop(win: DesktopWindow): Desktop | undefined {
 						// Retry enumeration while the switch is still pending.
 					}
 				};
-				const timeout = setTimeout(cancel, remaining);
-				const interval = setInterval(poll, WINDOW_POLL_INTERVAL);
+				const timeout = win.setTimeout(cancel, remaining);
+				const interval = win.setInterval(poll, WINDOW_POLL_INTERVAL);
 				signal.addEventListener("abort", cancel, { once: true });
 				poll();
 			});

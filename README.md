@@ -70,6 +70,10 @@ In **Hide current window** mode, the current window closes if the plugin is
 disabled or missing in the destination vault. When opening a closed vault,
 Obsidian may briefly show its window at its previous position.
 
+On native Wayland, Vault Dock cannot transfer the window position. Resizing
+and focusing depend on the compositor. Use **Keep both windows open** to
+switch without transferring window size or position.
+
 ## Switching on mobile
 
 Vault Dock automatically shows the vaults from Obsidian’s built-in switcher

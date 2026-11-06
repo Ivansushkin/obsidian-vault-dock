@@ -70,7 +70,7 @@ export function mountBar(
 
 	const focused = bar.ownerDocument.activeElement;
 	parent.insertBefore(bar, next);
-	if (focused instanceof HTMLElement && bar.contains(focused)) {
+	if (focused?.instanceOf(HTMLElement) && bar.contains(focused)) {
 		focused.focus({ preventScroll: true });
 	}
 }

@@ -42,8 +42,7 @@ export function watchNativeVaultMenu(
 		const addItem = menu.addItem.bind(menu);
 		menu.addItem = (buildItem) =>
 			addItem((item) => {
-				// Keep the original method for restoration after the item is built.
-				// eslint-disable-next-line @typescript-eslint/unbound-method
+				// eslint-disable-next-line @typescript-eslint/unbound-method -- Save the original method and call it with its menu item as the receiver.
 				const onClick = item.onClick;
 				item.onClick = (action) =>
 					onClick.call(item, (event) => {
