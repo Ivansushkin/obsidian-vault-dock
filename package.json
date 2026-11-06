@@ -1,0 +1,44 @@
+{
+	"name": "obsidian-vault-switcher",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"license": "MIT",
+	"engines": {
+		"node": ">=22"
+	},
+	"scripts": {
+		"build": "npm run typecheck && node esbuild.config.mjs",
+		"dev": "node esbuild.config.mjs --watch",
+		"install:dev": "npm run typecheck && node esbuild.config.mjs",
+		"typecheck": "tsc --noEmit",
+		"test": "npm run build -- --no-install && node --test",
+		"lint": "eslint . --max-warnings 0",
+		"lint:fix": "eslint . --fix --max-warnings 0",
+		"format": "prettier --write .",
+		"format:check": "prettier --check .",
+		"check": "npm run lint && npm run format:check && npm test",
+		"lint:staged": "lint-staged",
+		"prepare": "husky"
+	},
+	"devDependencies": {
+		"esbuild": "0.25.5",
+		"eslint": "9.39.4",
+		"eslint-config-prettier": "10.1.8",
+		"eslint-plugin-obsidianmd": "0.1.9",
+		"globals": "14.0.0",
+		"husky": "9.1.7",
+		"lint-staged": "16.4.0",
+		"obsidian": "1.13.1",
+		"prettier": "3.9.8",
+		"typescript": "5.8.3",
+		"typescript-eslint": "8.35.1"
+	},
+	"lint-staged": {
+		"*.{ts,mjs}": [
+			"eslint --fix --max-warnings 0",
+			"prettier --write"
+		],
+		"*.{json,css,md,yml,yaml}": "prettier --write"
+	}
+}

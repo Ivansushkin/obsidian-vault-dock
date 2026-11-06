@@ -1,0 +1,71 @@
+.vault-switcher-bar {
+	--vault-switcher-tile-width: 62px;
+	--vault-switcher-picture-size: 38px;
+
+	display: flex;
+	flex: 0 0 auto;
+	align-items: center;
+	gap: 6px;
+	min-width: 0;
+	padding: 5px 8px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.vault-switcher-bar .vault-switcher-bar-tiles {
+	display: flex;
+	flex: 1;
+	gap: 4px;
+	min-width: 0;
+	overflow-x: auto;
+}
+
+.vault-switcher-bar button.vault-switcher-bar-tile {
+	display: flex;
+	flex: 0 0 auto;
+	flex-direction: column;
+	align-items: center;
+	gap: 2px;
+	width: var(--vault-switcher-tile-width);
+	height: auto;
+	padding: 4px;
+	background: transparent;
+	box-shadow: none;
+}
+
+.vault-switcher-bar button.vault-switcher-bar-tile:hover {
+	background: var(--background-modifier-hover);
+}
+
+.vault-switcher-bar button.vault-switcher-bar-tile[aria-current="true"] {
+	background: var(--background-modifier-active-hover);
+}
+
+.vault-switcher-bar .vault-switcher-bar-picture {
+	display: grid;
+	flex: 0 0 auto;
+	grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+	overflow: hidden;
+	width: var(--vault-switcher-picture-size);
+	height: var(--vault-switcher-picture-size);
+	border-radius: 4px;
+	place-items: center;
+}
+
+.vault-switcher-bar .vault-switcher-bar-picture img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.vault-switcher-bar .vault-switcher-bar-label {
+	overflow: hidden;
+	width: 100%;
+	font-size: var(--font-ui-smaller);
+	text-align: center;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.vault-switcher-bar .vault-switcher-bar-settings {
+	flex: 0 0 auto;
+}
