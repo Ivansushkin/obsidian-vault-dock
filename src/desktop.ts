@@ -1,6 +1,7 @@
 import { id as pluginId } from "../manifest.json";
 
 export type Bounds = { x: number; y: number; width: number; height: number };
+export type WindowState = "normal" | "maximized" | "fullscreen";
 
 const WINDOW_POLL_INTERVAL = 100;
 
@@ -11,7 +12,12 @@ export type RegisteredVault = {
 	open: boolean;
 };
 
-type WindowTransition = "restore" | "leave-full-screen" | "unmaximize";
+type WindowTransition =
+	| "restore"
+	| "leave-full-screen"
+	| "unmaximize"
+	| "enter-full-screen"
+	| "maximize";
 type WindowEvent = "closed" | WindowTransition;
 
 type NativeWindow = {
@@ -21,9 +27,11 @@ type NativeWindow = {
 		executeJavaScript(code: string): Promise<unknown>;
 	};
 	getBounds(): Bounds;
+	getNormalBounds?(): Bounds;
 	setBounds(bounds: Bounds): void;
 	isVisible(): boolean;
 	isMaximized(): boolean;
+	maximize(): void;
 	isFullScreen(): boolean;
 	setFullScreen(fullscreen: boolean): void;
 	unmaximize(): void;
@@ -86,6 +94,13 @@ function matchesBounds(first: Bounds, second: Bounds): boolean {
 
 function isNormalWindow(win: NativeWindow): boolean {
 	return !win.isMaximized() && !win.isFullScreen() && !win.isMinimized();
+}
+
+function getWindowState(win: NativeWindow): WindowState {
+	if (win.isFullScreen()) {
+		return "fullscreen";
+	}
+	return win.isMaximized() ? "maximized" : "normal";
 }
 
 function requireNormalWindow(win: NativeWindow): void {
@@ -155,7 +170,7 @@ export type Desktop = {
 	currentId: string;
 	windowId: number;
 	list(): RegisteredVault[];
-	getBounds(): Bounds;
+	getWindowPlacement(): { bounds: Bounds; state: WindowState };
 	isNormalWindow(id: number): boolean;
 	normalizeWindow(
 		id: number,
@@ -163,6 +178,12 @@ export type Desktop = {
 		signal: AbortSignal,
 	): Promise<void>;
 	setBounds(bounds: Bounds, windowId?: number): void;
+	applyWindowState(
+		id: number,
+		state: Exclude<WindowState, "normal">,
+		expires: number,
+		signal: AbortSignal,
+	): Promise<void>;
 	findWindowWithoutPlugin(
 		targetId: string,
 		expires: number,
@@ -174,7 +195,12 @@ export type Desktop = {
 	): void;
 	open(target: RegisteredVault): void;
 	openOrFocus(target: RegisteredVault): Promise<void>;
-	isReadyWindow(id: number, bounds: Bounds, allowHidden?: boolean): boolean;
+	isReadyWindow(
+		id: number,
+		bounds: Bounds | undefined,
+		allowHidden?: boolean,
+		state?: WindowState,
+	): boolean;
 	isWindowVisible(id: number): boolean;
 	isWindowFocused(id: number): boolean;
 	showWindow(id: number): void;
@@ -244,13 +270,19 @@ export function connectDesktop(win: DesktopWindow): Desktop | undefined {
 			}
 			return vaults;
 		},
-		getBounds() {
-			requireNormalWindow(native);
-			const bounds = native.getBounds();
+		getWindowPlacement() {
+			if (native.isMinimized()) {
+				throw new Error("The source window is minimized");
+			}
+			const state = getWindowState(native);
+			const bounds =
+				state === "normal"
+					? native.getBounds()
+					: native.getNormalBounds?.();
 			if (!validBounds(bounds)) {
 				throw new Error("Invalid window geometry");
 			}
-			return bounds;
+			return { bounds, state };
 		},
 		isNormalWindow(id) {
 			const target = getWindow(id);
@@ -306,6 +338,33 @@ export function connectDesktop(win: DesktopWindow): Desktop | undefined {
 			if (!matchesBounds(target.getBounds(), bounds)) {
 				throw new Error("Could not apply window geometry");
 			}
+		},
+		async applyWindowState(id, state, expires, signal) {
+			const target = getWindow(id);
+			const fullscreen = state === "fullscreen";
+			if (
+				!target ||
+				(fullscreen
+					? typeof target.setFullScreen !== "function"
+					: typeof target.maximize !== "function")
+			) {
+				throw new Error("The target window state cannot be changed");
+			}
+			await waitForWindowTransition(
+				win,
+				target,
+				fullscreen ? "enter-full-screen" : "maximize",
+				() => getWindowState(target) !== state,
+				() => {
+					if (fullscreen) {
+						target.setFullScreen(true);
+					} else {
+						target.maximize();
+					}
+				},
+				expires,
+				signal,
+			);
 		},
 		findWindowWithoutPlugin(targetId, expires, signal) {
 			// Restricted Mode unloads plugins without clearing enabledPlugins.
@@ -450,14 +509,24 @@ export function connectDesktop(win: DesktopWindow): Desktop | undefined {
 				`obsidian://open?vault=${encodeURIComponent(target.id)}`,
 			);
 		},
-		isReadyWindow(id, bounds, allowHidden = false) {
+		isReadyWindow(id, bounds, allowHidden = false, state = "normal") {
 			const target = getWindow(id);
-			return (
-				!!target &&
-				isNormalWindow(target) &&
-				(allowHidden || target.isVisible()) &&
-				matchesBounds(target.getBounds(), bounds)
-			);
+			if (
+				!target ||
+				target.isMinimized() ||
+				getWindowState(target) !== state ||
+				(!allowHidden && !target.isVisible())
+			) {
+				return false;
+			}
+			if (!bounds) {
+				return true;
+			}
+			const actual =
+				state === "normal"
+					? target.getBounds()
+					: target.getNormalBounds?.();
+			return !!actual && matchesBounds(actual, bounds);
 		},
 		isWindowVisible: (id) => getWindow(id)?.isVisible() ?? false,
 		isWindowFocused: (id) => getWindow(id)?.isFocused() ?? false,

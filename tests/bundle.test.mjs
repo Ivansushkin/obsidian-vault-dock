@@ -44,31 +44,42 @@ test("the mobile bundle uses the native vault list and ignores old manual entrie
 		isConnected: true,
 		options: [],
 		value: "documents/Notes",
+		contains: (node) => node === native,
 		dispatchEvent(event) {
 			assert.equal(event.type, "change");
 			nativeSwitches.push(this.value);
 		},
 	};
-	let currentSwitcher = native;
-	let onOptionsChanged;
-	let onLayoutChanged;
-	let observed;
+	let currentSwitcher = null;
+	const observed = new Map();
 	class MutationObserver {
 		constructor(callback) {
-			onOptionsChanged = callback;
+			this.callback = callback;
 		}
 		observe(target) {
-			observed = target;
+			this.target = target;
+			observed.set(target, this.callback);
 		}
 		disconnect() {
-			observed = undefined;
+			observed.delete(this.target);
 		}
 	}
-	const header = {
-		after: (dock) => (header.nextElementSibling = dock),
+	const createHeader = () => ({
+		isConnected: true,
+		after(dock) {
+			this.nextElementSibling = dock;
+		},
+		contains(node) {
+			return node === this;
+		},
 		querySelector: () => currentSwitcher,
+	});
+	let header = createHeader();
+	const document = {
+		body: {},
+		defaultView: win,
+		querySelector: () => header,
 	};
-	const document = { defaultView: win, querySelector: () => header };
 	const element = (parent) => ({
 		classList: { toggle() {} },
 		style: { setProperty() {} },
@@ -107,9 +118,8 @@ test("the mobile bundle uses the native vault list and ignores old manual entrie
 					ownerDocument: document,
 				},
 				onLayoutReady: (mount) => mount(),
-				on(type, callback) {
+				on(type) {
 					assert.equal(type, "layout-change");
-					onLayoutChanged = callback;
 				},
 			},
 		};
@@ -174,13 +184,18 @@ test("the mobile bundle uses the native vault list and ignores old manual entrie
 		["language", "hideLabels", "tileScale"],
 	);
 
+	const observeStructure = observed.get(document.body);
+	assert.equal(typeof observeStructure, "function");
+	currentSwitcher = native;
+	observeStructure([{ target: header }]);
+	assert.equal(header.nextElementSibling.hidden, true);
 	native.options.push(
 		{ value: "documents/Notes", text: "Notes" },
 		{ value: "icloud/Notes", text: "Notes" },
 		{ value: "manage-vaults", text: "Manage vaults…" },
 	);
+	const onOptionsChanged = observed.get(native);
 	assert.equal(typeof onOptionsChanged, "function");
-	assert.equal(observed, native);
 	onOptionsChanged();
 	assert.equal(header.nextElementSibling.hidden, false);
 	assert.equal(buttons.length, 2);
@@ -213,14 +228,30 @@ test("the mobile bundle uses the native vault list and ignores old manual entrie
 			{ value: "manage-vaults", text: "Manage vaults…" },
 		],
 	};
-	onLayoutChanged();
-	assert.equal(observed, currentSwitcher);
+	observeStructure([{ target: header }]);
+	assert.equal(observed.has(native), false);
+	assert.equal(observed.has(currentSwitcher), true);
 	assert.deepEqual(
 		buttons.map(({ label }) => label),
 		["Other"],
 	);
 	buttons[0].click();
 	assert.deepEqual(nativeSwitches, ["icloud/Notes", "documents/Other"]);
+	const removed = currentSwitcher;
+	currentSwitcher = null;
+	removed.isConnected = false;
+	observeStructure([{ target: header }]);
+	assert.equal(observed.has(removed), false);
+	assert.equal(header.nextElementSibling.hidden, true);
+	assert.equal(buttons.length, 0);
+	header.isConnected = false;
+	header = createHeader();
+	currentSwitcher = native;
+	native.isConnected = true;
+	native.options = removed.options;
+	observeStructure([{ target: document.body }]);
+	assert.equal(header.nextElementSibling.hidden, false);
+	assert.equal(buttons.length, 1);
 	plugin.dispose();
-	assert.equal(observed, undefined);
+	assert.equal(observed.size, 0);
 });

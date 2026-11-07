@@ -25,10 +25,13 @@ export async function startMobileDock(plugin: Plugin): Promise<void> {
 	dock.className = "vault-dock vault-dock-mobile";
 	const row = dock.createDiv("vault-dock-tiles");
 	row.setAttribute("role", "group");
+	let header: Element | null = null;
 	let switcher: HTMLSelectElement | undefined;
+	let structureObserver: MutationObserver | undefined;
 	let switcherObserver: MutationObserver | undefined;
 	plugin.register(() => {
 		disposed = true;
+		structureObserver?.disconnect();
 		switcherObserver?.disconnect();
 		dock.remove();
 	});
@@ -80,8 +83,8 @@ export async function startMobileDock(plugin: Plugin): Promise<void> {
 		}
 		row.scrollLeft = scrollLeft;
 	};
-	const mount = () => {
-		const header = doc.querySelector(DRAWER_HEADER);
+	const mount = (nextHeader: Element | null) => {
+		header = nextHeader;
 		if (!header) {
 			dock.remove();
 		} else if (header.nextElementSibling !== dock) {
@@ -141,8 +144,31 @@ export async function startMobileDock(plugin: Plugin): Promise<void> {
 	render();
 	workspace.onLayoutReady(() => {
 		if (!disposed) {
-			mount();
-			plugin.registerEvent(workspace.on("layout-change", mount));
+			const mountFromDocument = () =>
+				mount(doc.querySelector(DRAWER_HEADER));
+			mountFromDocument();
+			plugin.registerEvent(
+				workspace.on("layout-change", mountFromDocument),
+			);
+			structureObserver = new MutationObserver((records) => {
+				const nextHeader = header?.isConnected
+					? header
+					: doc.querySelector(DRAWER_HEADER);
+				if (
+					nextHeader !== header ||
+					records.some(
+						({ target }) =>
+							header?.contains(target) &&
+							!switcher?.contains(target),
+					)
+				) {
+					mount(nextHeader);
+				}
+			});
+			structureObserver.observe(doc.body, {
+				childList: true,
+				subtree: true,
+			});
 		}
 	});
 }

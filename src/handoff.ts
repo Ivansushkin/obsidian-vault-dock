@@ -3,6 +3,7 @@ import {
 	type Bounds,
 	type Desktop,
 	type RegisteredVault,
+	type WindowState,
 } from "./desktop";
 import { DEFAULT_SWITCHING_MODE, type SwitchingMode } from "./switching-mode";
 
@@ -17,6 +18,7 @@ type Request = {
 	sourceId: string;
 	targetId: string;
 	bounds: Bounds;
+	state?: Exclude<WindowState, "normal">;
 	expires: number;
 };
 type Reply = {
@@ -159,8 +161,17 @@ export class Handoff {
 			let status: Reply["status"] = "ready";
 			try {
 				const windowId = this.desktop.windowId;
+				const state = request.state;
+				const preserveState =
+					(state === "maximized" || state === "fullscreen") &&
+					this.desktop.isReadyWindow(
+						windowId,
+						undefined,
+						true,
+						state,
+					);
 				const normal = this.desktop.isNormalWindow(windowId);
-				if (!normal) {
+				if (!preserveState && !normal) {
 					if (!layoutReady) {
 						return;
 					}
@@ -170,6 +181,13 @@ export class Handoff {
 					};
 					this.preparing = preparing;
 					try {
+						if (
+							this.hidden &&
+							!this.desktop.isWindowVisible(windowId)
+						) {
+							// macOS can restore fullscreen when a hidden window is shown.
+							this.desktop.showInactive();
+						}
 						await this.desktop.normalizeWindow(
 							windowId,
 							expires,
@@ -187,7 +205,10 @@ export class Handoff {
 						return;
 					}
 				}
-				if (!normal || request.id !== this.preparedId) {
+				if (
+					!preserveState &&
+					(!normal || request.id !== this.preparedId)
+				) {
 					this.desktop.setBounds(request.bounds);
 					this.preparedId = request.id;
 				}
@@ -224,15 +245,30 @@ export class Handoff {
 			return "busy";
 		}
 		this.switching = true;
+		let pending: AbortSignal | undefined;
 		try {
+			const waitForPrevious = this.hasIncomingFullscreenRequest();
+			if (waitForPrevious) {
+				pending = AbortSignal.any([
+					this.lifecycle.signal,
+					AbortSignal.timeout(this.timeout),
+				]);
+			}
 			const result: unknown = await this.win.navigator.locks.request(
 				LOCK_NAME,
-				{ ifAvailable: true },
+				pending ? { signal: pending } : { ifAvailable: true },
 				async (lock): Promise<Result> => {
+					pending = undefined;
 					if (!lock) {
 						return "busy";
 					}
-					if (this.lifecycle.signal.aborted) {
+					if (
+						this.lifecycle.signal.aborted ||
+						(waitForPrevious &&
+							!this.desktop.isWindowVisible(
+								this.desktop.windowId,
+							))
+					) {
 						return "ignored";
 					}
 					const target = this.desktop
@@ -255,9 +291,27 @@ export class Handoff {
 			);
 			return result as Result;
 		} catch {
-			return "failed";
+			if (this.lifecycle.signal.aborted) {
+				return "ignored";
+			}
+			return pending?.aborted ? "timeout" : "failed";
 		} finally {
 			this.switching = false;
+		}
+	}
+
+	/** A fullscreen destination can receive clicks before the source releases its lock. */
+	private hasIncomingFullscreenRequest(): boolean {
+		try {
+			const request = read<Request>(this.win.localStorage, REQUEST_KEY);
+			return (
+				request?.state === "fullscreen" &&
+				request.targetId === this.currentId &&
+				typeof request.expires === "number" &&
+				request.expires > Date.now()
+			);
+		} catch {
+			return false;
 		}
 	}
 
@@ -282,11 +336,13 @@ export class Handoff {
 		keepOpen: boolean,
 	): Promise<Result> {
 		const storage = this.win.localStorage;
+		const { bounds, state } = this.desktop.getWindowPlacement();
 		const request: Request = {
 			id: this.win.crypto.randomUUID(),
 			sourceId: this.currentId,
 			targetId: target.id,
-			bounds: this.desktop.getBounds(),
+			bounds,
+			state: state === "normal" ? undefined : state,
 			expires: Date.now() + this.timeout,
 		};
 		try {
@@ -311,21 +367,16 @@ export class Handoff {
 			const withoutPlugin = reply.status === "without-plugin";
 			const hideSource = keepOpen && !withoutPlugin;
 			const hidden = !withoutPlugin && reply.hidden === true;
-			if (withoutPlugin) {
-				try {
-					await this.desktop.normalizeWindow(
-						windowId,
-						request.expires,
-						this.lifecycle.signal,
-					);
-				} catch (error) {
-					if (
-						!this.lifecycle.signal.aborted &&
-						Date.now() < request.expires
-					) {
-						throw error;
-					}
-				}
+			// Keep already expanded windows in their native state, including hidden Spaces.
+			const preserveState =
+				state !== "normal" &&
+				this.desktop.isReadyWindow(windowId, undefined, true, state);
+			if (withoutPlugin && !preserveState) {
+				await this.desktop.normalizeWindow(
+					windowId,
+					request.expires,
+					this.lifecycle.signal,
+				);
 				if (this.lifecycle.signal.aborted) {
 					return "ignored";
 				}
@@ -333,10 +384,15 @@ export class Handoff {
 					return "timeout";
 				}
 				this.desktop.setBounds(request.bounds, windowId);
-			} else if (keepOpen && reply.hidden === undefined) {
+			} else if (
+				!withoutPlugin &&
+				keepOpen &&
+				reply.hidden === undefined
+			) {
 				return "failed";
 			}
 			if (
+				!preserveState &&
 				!this.desktop.isReadyWindow(
 					windowId,
 					request.bounds,
@@ -344,6 +400,20 @@ export class Handoff {
 				)
 			) {
 				return "failed";
+			}
+			if (state === "maximized" && !preserveState) {
+				await this.desktop.applyWindowState(
+					windowId,
+					state,
+					request.expires,
+					this.lifecycle.signal,
+				);
+			}
+			if (this.lifecycle.signal.aborted) {
+				return "ignored";
+			}
+			if (Date.now() >= request.expires) {
+				return "timeout";
 			}
 			if (
 				hidden ||
@@ -353,12 +423,44 @@ export class Handoff {
 			} else if (target.open || !this.desktop.isWindowFocused(windowId)) {
 				this.desktop.open(target);
 			}
-			const focused = await this.waitForFocus(windowId, request);
+			const focused = await this.waitForFocus(
+				windowId,
+				request,
+				preserveState || state === "maximized" ? state : "normal",
+				state === "normal" ? FOCUS_TIMEOUT : undefined,
+				preserveState,
+			);
 			if (this.lifecycle.signal.aborted) {
 				return "ignored";
 			}
 			if (!focused) {
-				return "failed";
+				return state !== "normal" && Date.now() >= request.expires
+					? "timeout"
+					: "failed";
+			}
+			if (state === "fullscreen" && !preserveState) {
+				await this.desktop.applyWindowState(
+					windowId,
+					state,
+					request.expires,
+					this.lifecycle.signal,
+				);
+				if (this.lifecycle.signal.aborted) {
+					return "ignored";
+				}
+				if (Date.now() >= request.expires) {
+					return "timeout";
+				}
+				if (!this.desktop.isWindowFocused(windowId)) {
+					this.desktop.open(target);
+				}
+				const ready = await this.waitForFocus(windowId, request, state);
+				if (this.lifecycle.signal.aborted) {
+					return "ignored";
+				}
+				if (!ready) {
+					return Date.now() >= request.expires ? "timeout" : "failed";
+				}
 			}
 			if (hideSource) {
 				this.clearHiddenState();
@@ -377,6 +479,14 @@ export class Handoff {
 				this.desktop.close();
 			}
 			return "ok";
+		} catch (error) {
+			if (this.lifecycle.signal.aborted) {
+				return "ignored";
+			}
+			if (Date.now() >= request.expires) {
+				return "timeout";
+			}
+			throw error;
 		} finally {
 			if (read<Request>(storage, REQUEST_KEY)?.id === request.id) {
 				storage.removeItem(REQUEST_KEY);
@@ -391,17 +501,25 @@ export class Handoff {
 	private async waitForFocus(
 		windowId: number,
 		request: Request,
+		state: WindowState,
+		focusTimeout?: number,
+		preserveBounds = false,
 	): Promise<boolean> {
-		const deadline = Math.min(request.expires, Date.now() + FOCUS_TIMEOUT);
-		while (!this.lifecycle.signal.aborted && Date.now() < request.expires) {
+		const deadline =
+			focusTimeout === undefined
+				? request.expires
+				: Math.min(request.expires, Date.now() + focusTimeout);
+		while (!this.lifecycle.signal.aborted && Date.now() < deadline) {
 			if (
-				this.desktop.isReadyWindow(windowId, request.bounds) &&
+				this.desktop.isReadyWindow(
+					windowId,
+					preserveBounds ? undefined : request.bounds,
+					false,
+					state,
+				) &&
 				this.desktop.isWindowFocused(windowId)
 			) {
 				return true;
-			}
-			if (Date.now() >= deadline) {
-				return false;
 			}
 			await new Promise<void>((resolve) =>
 				this.win.setTimeout(resolve, 25),

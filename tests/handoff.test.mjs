@@ -29,6 +29,7 @@ function fixture({ asyncStorage = false } = {}) {
 	const events = new EventTarget();
 	const nativeEvents = new EventTarget();
 	let locked = false;
+	let released;
 	const actions = [];
 	const hidden = new Set();
 	const win = Object.assign(events, {
@@ -50,15 +51,21 @@ function fixture({ asyncStorage = false } = {}) {
 		},
 		navigator: {
 			locks: {
-				async request(_name, _options, callback) {
-					if (locked) {
-						return callback(null);
+				async request(_name, options, callback) {
+					while (locked) {
+						if (options.ifAvailable) {
+							return callback(null);
+						}
+						await released.promise;
 					}
+					options.signal?.throwIfAborted();
 					locked = true;
+					released = Promise.withResolvers();
 					try {
 						return await callback({});
 					} finally {
 						locked = false;
+						released.resolve();
 					}
 				},
 			},
@@ -86,7 +93,7 @@ function fixture({ asyncStorage = false } = {}) {
 			hidden.add(this.windowId);
 		},
 		list: () => vaults,
-		getBounds: () => bounds,
+		getWindowPlacement: () => ({ bounds, state: "normal" }),
 		isNormalWindow: () => true,
 		normalizeWindow: async () => {},
 		setBounds: () => actions.push("bounds"),
@@ -107,6 +114,47 @@ function fixture({ asyncStorage = false } = {}) {
 	};
 	return { win, desktop, actions };
 }
+
+test("a click in the incoming fullscreen window waits for the previous handoff", async () => {
+	const { win, desktop, actions } = fixture();
+	const entering = Promise.withResolvers();
+	const entered = Promise.withResolvers();
+	let targetFullscreen = false;
+	const window = {
+		...desktop,
+		getWindowPlacement: () => ({ bounds, state: "fullscreen" }),
+		isReadyWindow(id, bounds, allowHidden, state) {
+			if (id === 2 && state === "fullscreen" && !targetFullscreen) {
+				return false;
+			}
+			return desktop.isReadyWindow(id, bounds, allowHidden);
+		},
+		async applyWindowState() {
+			entering.resolve();
+			await entered.promise;
+			targetFullscreen = true;
+		},
+	};
+	const first = new Handoff(win, window, "a");
+	const second = new Handoff(win, { ...window, windowId: 2 }, "b");
+	win.addEventListener("storage", () => {
+		void first.receive(true);
+		void second.receive(true);
+	});
+	const outward = first.switchTo("b");
+	await entering.promise;
+	const returning = second.switchTo("a");
+	entered.resolve();
+	assert.equal(await outward, "ok");
+	assert.equal(await returning, "ok");
+	assert.deepEqual(actions, [
+		"bounds",
+		"/b/Same",
+		"hide 1",
+		"show 1",
+		"hide 2",
+	]);
+});
 
 test("an open destination applies bounds and becomes ready before focus and source close", async () => {
 	const { win, desktop, actions } = fixture();
@@ -280,6 +328,40 @@ for (const mode of ["keep-open", "replace"]) {
 	});
 }
 
+test("a hidden expanded destination is shown before restoring its normal bounds", async () => {
+	const { win, desktop, actions } = fixture();
+	let expanded = false;
+	const first = new Handoff(
+		win,
+		{
+			...desktop,
+			isNormalWindow: () => !expanded,
+			async normalizeWindow() {
+				assert.equal(desktop.isWindowVisible(1), true);
+				expanded = false;
+				actions.push("normalize");
+			},
+		},
+		"a",
+	);
+	const second = new Handoff(win, { ...desktop, windowId: 2 }, "b");
+	win.addEventListener("storage", () => {
+		void first.receive(true);
+		void second.receive(true);
+	});
+	assert.equal(await first.switchTo("b"), "ok");
+	expanded = true;
+	actions.length = 0;
+	assert.equal(await second.switchTo("a"), "ok");
+	assert.deepEqual(actions, [
+		"restore 1",
+		"normalize",
+		"bounds",
+		"/a/Same",
+		"hide 2",
+	]);
+});
+
 test("replace requests focus again for a cold destination before closing the source", async () => {
 	const { win, desktop, actions } = fixture();
 	let openCount = 0;
@@ -359,6 +441,173 @@ function connectTarget(native) {
 			remote: { BrowserWindow: { fromId: () => null } },
 		},
 		electronWindow: native,
+	});
+}
+
+function expandedSourceFixture(
+	state,
+	timeout = 500,
+	targetAlreadyExpanded = false,
+) {
+	const { win, actions } = fixture();
+	let targetState = targetAlreadyExpanded ? state : "normal";
+	let targetBounds = targetAlreadyExpanded
+		? { ...bounds, width: 1100 }
+		: undefined;
+	let focused = false;
+	let started;
+	const transition = new Promise((resolve) => (started = resolve));
+	const target = Object.assign(new EventEmitter(), {
+		id: 2,
+		getBounds: () => targetBounds,
+		getNormalBounds: () => targetBounds,
+		isDestroyed: () => false,
+		isVisible: () => true,
+		isFocused: () => focused,
+		isMaximized: () => targetState === "maximized",
+		isFullScreen: () => targetState === "fullscreen",
+		isMinimized: () => false,
+		setBounds(value) {
+			targetBounds = value;
+			actions.push("bounds");
+		},
+		maximize() {
+			assert.equal(focused, false);
+			actions.push("maximize");
+			started();
+		},
+		setFullScreen(value) {
+			assert.equal(value, true);
+			assert.equal(focused, true);
+			actions.push("enter fullscreen");
+			started();
+		},
+	});
+	let sourceVisible = true;
+	const desktop = connectDesktop(
+		Object.assign(win, {
+			electron: {
+				ipcRenderer: {
+					sendSync(channel) {
+						if (channel === "vault") {
+							return { id: "a" };
+						}
+						if (channel === "vault-list") {
+							return { a: vaults[0], b: vaults[1] };
+						}
+						assert.equal(channel, "vault-open");
+						focused = true;
+						actions.push("focus");
+						return true;
+					},
+				},
+				remote: {
+					BrowserWindow: {
+						fromId: (id) => (id === 2 ? target : null),
+					},
+				},
+			},
+			electronWindow: {
+				id: 1,
+				getBounds: () => ({ ...bounds, width: 1400 }),
+				getNormalBounds: () => bounds,
+				isMaximized: () => true,
+				isFullScreen: () => state === "fullscreen",
+				isMinimized: () => false,
+				isDestroyed: () => false,
+				isVisible: () => sourceVisible,
+				setBounds: () => assert.fail("source geometry must not change"),
+				hide() {
+					sourceVisible = false;
+					actions.push("hide");
+				},
+			},
+			close() {
+				sourceVisible = false;
+				actions.push("close");
+			},
+		}),
+	);
+	const receiver = new Handoff(win, connectTarget(target), "b");
+	win.addEventListener("storage", () => void receiver.receive(true));
+	return {
+		source: new Handoff(win, desktop, "a", timeout),
+		actions,
+		transition,
+		target,
+		finish() {
+			targetState = state;
+			focused = false;
+			target.emit(
+				state === "fullscreen" ? "enter-full-screen" : "maximize",
+			);
+		},
+		getTargetBounds: () => targetBounds,
+		isSourceVisible: () => sourceVisible,
+	};
+}
+
+for (const state of ["maximized", "fullscreen"]) {
+	test(`switching to an already ${state} destination preserves its state and bounds`, async () => {
+		const fixture = expandedSourceFixture(state, 500, true);
+		assert.equal(await fixture.source.switchTo("b", "keep-open"), "ok");
+		assert.deepEqual(fixture.actions, ["focus", "hide"]);
+		assert.deepEqual(fixture.getTargetBounds(), { ...bounds, width: 1100 });
+	});
+	for (const [mode, retire] of [
+		["keep-open", "hide"],
+		["replace", "close"],
+	]) {
+		test(`a ${state} source transfers its window state before ${retire}`, async () => {
+			const fixture = expandedSourceFixture(state);
+			const result = fixture.source.switchTo("b", mode);
+			await Promise.race([fixture.transition, result]);
+			const start =
+				state === "fullscreen" ? "enter fullscreen" : "maximize";
+			const preparation =
+				state === "fullscreen"
+					? ["bounds", "focus", start]
+					: ["bounds", start];
+			assert.deepEqual(fixture.actions, preparation);
+			assert.deepEqual(fixture.getTargetBounds(), bounds);
+			assert.equal(fixture.isSourceVisible(), true);
+			fixture.finish();
+			assert.equal(await result, "ok");
+			assert.deepEqual(fixture.actions, [
+				...preparation,
+				"focus",
+				retire,
+			]);
+		});
+	}
+}
+
+for (const [failure, resultName] of [
+	["a timeout", "timeout"],
+	["the target closing", "failed"],
+]) {
+	test(`${failure} during fullscreen entry leaves the source visible`, async () => {
+		const fixture = expandedSourceFixture("fullscreen", 80);
+		const result = fixture.source.switchTo("b", "keep-open");
+		await Promise.race([fixture.transition, result]);
+		assert.deepEqual(fixture.actions, [
+			"bounds",
+			"focus",
+			"enter fullscreen",
+		]);
+		if (resultName === "failed") {
+			fixture.target.emit("closed");
+		}
+		assert.equal(await result, resultName);
+		assert.equal(fixture.isSourceVisible(), true);
+		assert.equal(fixture.target.listenerCount("enter-full-screen"), 0);
+		assert.equal(fixture.target.listenerCount("closed"), 0);
+		fixture.finish();
+		assert.deepEqual(fixture.actions, [
+			"bounds",
+			"focus",
+			"enter fullscreen",
+		]);
 	});
 }
 
