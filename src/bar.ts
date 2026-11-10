@@ -3,10 +3,11 @@ import type { BarPosition } from "./bar-position";
 import { BarResize } from "./bar-resize";
 import type { RegisteredVault } from "./desktop";
 import type { Translate } from "./i18n";
-import { PlaceholderColorModal } from "./placeholder-color-modal";
 import type { PlaceholderColors } from "./placeholder-colors";
-import { IMAGE_TYPES, MAX_IMAGE_SIZE } from "./settings-store";
 import { createTile, getInitials, showInitials } from "./tile";
+import { TileAppearanceModal } from "./tile-appearance-modal";
+import { TileReorder } from "./tile-reorder";
+import { resolveVaultOrder, type VaultMove } from "./vault-order";
 
 const positionItems = [
 	["top", "barTop"],
@@ -107,21 +108,21 @@ export class Bar {
 	readonly element: HTMLElement;
 	private readonly tiles: HTMLElement;
 	private readonly resize: BarResize;
-	private readonly picker: HTMLInputElement;
-	private readonly saving = new Set<string>();
+	private readonly reorder: TileReorder;
 	private readonly pictures = new Map<Element, TilePicture>();
 	private readonly pictureObserver?: ResizeObserver;
 	private menu?: Menu;
-	private colorModal?: PlaceholderColorModal;
-	private pickerTarget?: TileTarget;
+	private appearanceModal?: TileAppearanceModal;
 	private urls = new Map<Blob, string>();
 	private pending = true;
+	private savingOrder = false;
 	private disposed = false;
 
 	constructor(
 		document: Document,
 		private readonly app: App,
 		private readonly onSelect: (id: string) => void,
+		private readonly onMove: (move: VaultMove) => Promise<void>,
 		private readonly scopeRevision: () => number | undefined,
 		private readonly save: (
 			id: string,
@@ -143,6 +144,11 @@ export class Bar {
 		this.tiles = this.element.createDiv("vault-dock-tiles");
 		this.tiles.setAttribute("role", "group");
 		this.resize = new BarResize(this.element, saveScale);
+		this.reorder = new TileReorder(
+			this.tiles,
+			() => this.canMove(),
+			(move) => void this.moveTile(move),
+		);
 		this.element.addEventListener("contextmenu", (event) =>
 			this.showPositionMenu(event),
 		);
@@ -162,22 +168,6 @@ export class Bar {
 				}
 			});
 		}
-		this.picker = this.element.createEl("input", {
-			attr: { type: "file", accept: IMAGE_TYPES.join(",") },
-		});
-		this.picker.hidden = true;
-		this.picker.addEventListener("cancel", () => {
-			this.pickerTarget = undefined;
-		});
-		this.picker.addEventListener("change", () => {
-			const target = this.pickerTarget;
-			const file = this.picker.files?.[0];
-			this.pickerTarget = undefined;
-			this.picker.value = "";
-			if (target && file) {
-				void this.changeImage(target, file);
-			}
-		});
 		this.localize();
 	}
 
@@ -190,6 +180,7 @@ export class Bar {
 	onPlacementChanged(): void {
 		this.menu?.hide();
 		this.resize.cancel();
+		this.reorder.cancel();
 	}
 
 	render(
@@ -197,8 +188,10 @@ export class Bar {
 		activeId: string,
 		images: Map<string, Blob>,
 		placeholderColors?: ReadonlyMap<string, PlaceholderColors>,
+		vaultOrder: readonly string[] = [],
 	): void {
 		this.menu?.hide();
+		this.reorder.cancel();
 		const { scrollLeft, scrollTop } = this.tiles;
 		const active = this.tiles.ownerDocument.activeElement;
 		const focused = this.tiles.contains(active)
@@ -209,7 +202,12 @@ export class Bar {
 		this.tiles.replaceChildren();
 		let focusTarget: HTMLButtonElement | undefined;
 
-		for (const vault of vaults) {
+		const byId = new Map(vaults.map((vault) => [vault.id, vault]));
+		for (const id of resolveVaultOrder([...byId.keys()], vaultOrder)) {
+			const vault = byId.get(id);
+			if (!vault) {
+				continue;
+			}
 			const { tile, picture } = createTile(
 				this.tiles,
 				vault,
@@ -235,14 +233,16 @@ export class Bar {
 					picture.style.color = colors.text;
 				}
 			}
-			tile.addEventListener("contextmenu", (event) => {
-				this.showImageMenu(
-					event,
-					vault,
-					tile,
-					image !== undefined,
-					colors,
-				);
+			const showMenu = (event: MouseEvent | KeyboardEvent) =>
+				this.showTileMenu(event, vault, tile, image, colors);
+			tile.addEventListener("contextmenu", showMenu);
+			tile.addEventListener("keydown", (event) => {
+				if (
+					event.key === "ContextMenu" ||
+					(event.shiftKey && event.key === "F10")
+				) {
+					showMenu(event);
+				}
 			});
 		}
 
@@ -380,12 +380,12 @@ export class Bar {
 		menu.showAtMouseEvent(event);
 	}
 
-	/** Bind the menu and file picker to the tile and the displayed settings scope. */
-	private showImageMenu(
-		event: MouseEvent,
+	/** Bind the menu to the tile and the displayed settings scope. */
+	private showTileMenu(
+		event: MouseEvent | KeyboardEvent,
 		vault: RegisteredVault,
 		tile: HTMLButtonElement,
-		hasImage: boolean,
+		image?: Blob,
 		colors?: PlaceholderColors,
 	): void {
 		event.preventDefault();
@@ -400,46 +400,57 @@ export class Bar {
 		}
 		const { id, name } = vault;
 		const target = { id, scopeRevision };
-		const saving = this.saving.has(id);
-		// Open the picker synchronously from a renderer user gesture.
 		const menu = this.createMenu();
 		menu.addItem((item) => {
-			item.setTitle(this.t(hasImage ? "changeImage" : "uploadImage"))
-				.setDisabled(saving || this.pickerTarget !== undefined)
-				.onClick(() => {
-					this.pickerTarget = target;
-					this.picker.click();
-				});
+			item.setTitle(this.t("tileAppearance"))
+				.setDisabled(this.appearanceModal !== undefined)
+				.onClick(() =>
+					this.chooseAppearance(target, tile, name, image, colors),
+				);
 		});
-		menu.addItem((item) => {
-			item.setTitle(this.t("removeImage"))
-				.setDisabled(
-					!hasImage || saving || this.pickerTarget?.id === id,
-				)
-				.onClick(() => void this.changeImage(target));
-		});
-		menu.addItem((item) => {
-			item.setTitle(this.t("chooseColor"))
-				.setDisabled(saving || this.pickerTarget?.id === id)
-				.onClick(() => this.chooseColor(target, tile, name, colors));
-		});
-		menu.showAtMouseEvent(event);
+		menu.addSeparator();
+		const moves = [
+			["moveVaultEarlier", "before", tile.previousElementSibling],
+			["moveVaultLater", "after", tile.nextElementSibling],
+		] as const;
+		for (const [label, side, anchor] of moves) {
+			const anchorId = anchor?.getAttribute("data-vault-id");
+			menu.addItem((item) =>
+				item
+					.setTitle(this.t(label))
+					.setDisabled(!anchorId || !this.canMove())
+					.onClick(() => {
+						if (anchorId) {
+							tile.focus({ preventScroll: true });
+							void this.moveTile({ id, anchorId, side }, true);
+						}
+					}),
+			);
+		}
+		if ("clientX" in event) {
+			menu.showAtMouseEvent(event);
+		} else {
+			const { left, bottom } = tile.getBoundingClientRect();
+			menu.showAtPosition({ x: left, y: bottom }, tile.ownerDocument);
+		}
 	}
 
 	/** Keep the draft tied to the tile and the scope shown when the menu opened. */
-	private chooseColor(
+	private chooseAppearance(
 		target: TileTarget,
 		tile: HTMLButtonElement,
 		name: string,
+		image?: Blob,
 		colors?: PlaceholderColors,
 	): void {
-		if (this.disposed || this.colorModal) {
+		if (this.disposed || this.appearanceModal) {
 			return;
 		}
-		this.colorModal = new PlaceholderColorModal(
+		this.appearanceModal = new TileAppearanceModal(
 			this.app,
 			{
 				tile,
+				name,
 				initials: getInitials(name),
 				scale: this.element.style.getPropertyValue(
 					"--vault-switcher-tile-scale",
@@ -447,62 +458,75 @@ export class Bar {
 				hideLabel: this.labelsHidden,
 			},
 			colors,
+			image,
 			this.t,
-			(draft) => void this.changeColors(target, draft),
+			(change) =>
+				"colors" in change
+					? this.saveColors(
+							target.id,
+							change.colors,
+							target.scopeRevision,
+						)
+					: this.save(target.id, change.image, target.scopeRevision),
 			() => {
-				this.colorModal = undefined;
+				this.appearanceModal = undefined;
+				// Applying can rebuild the tile while the modal owns focus.
+				queueMicrotask(() => {
+					const doc = this.tiles.ownerDocument;
+					if (
+						!this.disposed &&
+						!this.appearanceModal &&
+						doc.activeElement === doc.body
+					) {
+						Array.from(
+							this.tiles.querySelectorAll<HTMLButtonElement>(
+								"button[data-vault-id]",
+							),
+						)
+							.find(
+								(button) =>
+									button.dataset.vaultId === target.id,
+							)
+							?.focus({ preventScroll: true });
+					}
+				});
 			},
 		);
-		this.colorModal.open();
+		this.appearanceModal.open();
 	}
 
-	/** Serialize appearance writes for this tile in the current window. */
-	private async changeColors(
-		target: TileTarget,
-		colors: PlaceholderColors,
-	): Promise<void> {
-		if (this.disposed || this.saving.has(target.id)) {
+	private canMove(): boolean {
+		return (
+			!this.disposed &&
+			!this.pending &&
+			!this.savingOrder &&
+			this.scopeRevision() !== undefined &&
+			this.tiles.childElementCount > 1
+		);
+	}
+
+	/** Serialize moves from the drag gesture and the tile menu in this window. */
+	private async moveTile(move: VaultMove, reveal = false): Promise<void> {
+		if (!this.canMove()) {
 			return;
 		}
-		this.saving.add(target.id);
+		this.savingOrder = true;
 		try {
-			await this.saveColors(target.id, colors, target.scopeRevision);
+			await this.onMove(move);
+			const focused = this.tiles.ownerDocument.activeElement;
+			if (
+				reveal &&
+				this.tiles.contains(focused) &&
+				focused?.getAttribute("data-vault-id") === move.id
+			) {
+				focused.scrollIntoView({ block: "nearest", inline: "nearest" });
+			}
 		} catch {
 			if (!this.disposed) {
 				new Notice(this.t("saveSettingsFailed"));
 			}
 		} finally {
-			this.saving.delete(target.id);
-		}
-	}
-
-	/** Validate a selected file before replacing the stored image. */
-	private async changeImage(target: TileTarget, file?: File): Promise<void> {
-		if (this.disposed || this.saving.has(target.id)) {
-			return;
-		}
-		this.saving.add(target.id);
-		try {
-			if (file) {
-				if (
-					!IMAGE_TYPES.includes(file.type) ||
-					file.size > MAX_IMAGE_SIZE
-				) {
-					new Notice(this.t("invalidImage"));
-					return;
-				}
-				const decoded = await createImageBitmap(file);
-				decoded.close();
-			}
-			if (!this.disposed) {
-				await this.save(target.id, file, target.scopeRevision);
-			}
-		} catch {
-			if (!this.disposed) {
-				new Notice(this.t("saveImageFailed"));
-			}
-		} finally {
-			this.saving.delete(target.id);
+			this.savingOrder = false;
 		}
 	}
 
@@ -511,6 +535,9 @@ export class Bar {
 			return;
 		}
 		this.pending = pending;
+		if (pending) {
+			this.reorder.cancel();
+		}
 		for (const tile of this.tiles.querySelectorAll("button")) {
 			tile.disabled = pending;
 		}
@@ -523,19 +550,21 @@ export class Bar {
 	setHideLabels(hideLabels: boolean): void {
 		this.menu?.hide();
 		this.resize.cancel();
+		this.reorder.cancel();
 		this.tiles.classList.toggle("vault-dock-hide-labels", hideLabels);
 	}
 
 	setTileScale(scale: number): void {
+		this.reorder.cancel();
 		this.resize.setScale(scale);
 	}
 
 	dispose(): void {
 		this.disposed = true;
 		this.resize.cancel();
+		this.reorder.cancel();
 		this.menu?.hide();
-		this.colorModal?.close();
-		this.pickerTarget = undefined;
+		this.appearanceModal?.dispose();
 		this.clearPictures();
 		this.element.remove();
 		for (const url of this.urls.values()) {

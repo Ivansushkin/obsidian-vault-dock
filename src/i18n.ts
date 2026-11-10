@@ -1,4 +1,5 @@
 import type { PaletteName } from "./placeholder-colors";
+import type { PresetId } from "./tile-presets";
 
 export const LANGUAGE_NAMES = {
 	en: "English",
@@ -53,16 +54,35 @@ const en = {
 	tileScaleDescription:
 		"Adjust the size of tiles with and without labels. You can also drag the edge of the bar.",
 	vaults: "Vaults",
-	uploadImage: "Upload image",
-	changeImage: "Change image",
-	removeImage: "Remove image",
-	chooseColor: "Choose color",
-	placeholderColorDescription:
-		"If this tile has an image, applying colors replaces it with a placeholder.",
+	chooseImageFile: "Choose file…",
+	removeImage: "Remove picture",
+	tileImage: "Picture",
+	appearancePreview: "Preview",
+	initialsHint: "Choosing a color shows the initials.",
+	checkingImage: "Checking image…",
+	invalidImage:
+		"Could not open the image. Choose a PNG, JPEG, or WebP file up to 512 KB.",
+	appearanceScopeChanged:
+		"Shared settings changed. Reopen Tile appearance to edit the current settings.",
+	tileAppearance: "Tile appearance",
+	tilePresets: "Ready-made pictures",
+	tileInitials: "Initials",
+	moveVaultEarlier: "Move earlier",
+	moveVaultLater: "Move later",
+	presetNames: {
+		book: "Book",
+		briefcase: "Briefcase",
+		code: "Code",
+		compass: "Compass",
+		flask: "Flask",
+		home: "Home",
+		music: "Music",
+		spark: "Spark",
+	} satisfies Record<PresetId, string>,
 	placeholderBackground: "Background",
 	placeholderText: "Text",
-	applyColor: "Apply",
-	cancelColor: "Cancel",
+	applyAppearance: "Apply",
+	cancelAppearance: "Cancel",
 	colorNames: {
 		transparent: "No color",
 		white: "White",
@@ -86,8 +106,6 @@ const en = {
 	switchFailed: "Could not switch vaults in the current window state.",
 	saveSettingsFailed: "Could not update vault switcher settings. Try again.",
 	settingsLoading: "Vault switcher settings are still loading. Try again.",
-	invalidImage: "The selected image has an unsupported format or size.",
-	saveImageFailed: "Could not update the vault image. Try again.",
 };
 
 type Messages = typeof en;
@@ -125,16 +143,35 @@ const messages: Record<Language, Messages> = {
 		tileScaleDescription:
 			"Изменяйте размер плиток с подписями и без них. Можно также перетаскивать край панели.",
 		vaults: "Хранилища",
-		uploadImage: "Загрузить картинку",
-		changeImage: "Сменить картинку",
-		removeImage: "Удалить картинку",
-		chooseColor: "Выбрать цвет",
-		placeholderColorDescription:
-			"Если у плитки есть картинка, применение цветов заменит её заглушкой.",
+		chooseImageFile: "Выбрать файл…",
+		removeImage: "Убрать картинку",
+		tileImage: "Картинка",
+		appearancePreview: "Предпросмотр",
+		initialsHint: "Выбор цвета показывает инициалы.",
+		checkingImage: "Проверяем картинку…",
+		invalidImage:
+			"Не удалось открыть картинку. Выберите PNG, JPEG или WebP до 512 КБ.",
+		appearanceScopeChanged:
+			"Область настроек изменилась. Переоткройте «Оформление плитки», чтобы изменить текущие настройки.",
+		tileAppearance: "Оформление плитки",
+		tilePresets: "Готовые картинки",
+		tileInitials: "Инициалы",
+		moveVaultEarlier: "Переместить раньше",
+		moveVaultLater: "Переместить позже",
+		presetNames: {
+			book: "Книга",
+			briefcase: "Портфель",
+			code: "Код",
+			compass: "Компас",
+			flask: "Колба",
+			home: "Дом",
+			music: "Музыка",
+			spark: "Искра",
+		},
 		placeholderBackground: "Фон",
 		placeholderText: "Текст",
-		applyColor: "Применить",
-		cancelColor: "Отмена",
+		applyAppearance: "Применить",
+		cancelAppearance: "Отмена",
 		colorNames: {
 			transparent: "Без цвета",
 			white: "Белый",
@@ -164,9 +201,6 @@ const messages: Record<Language, Messages> = {
 			"Не удалось сохранить настройки Vault Dock. Попробуйте снова.",
 		settingsLoading:
 			"Настройки Vault Dock ещё загружаются. Попробуйте снова.",
-		invalidImage: "Формат или размер выбранной картинки не поддерживается.",
-		saveImageFailed:
-			"Не удалось обновить картинку хранилища. Попробуйте снова.",
 	},
 	kk: {
 		mobileSwitchFailed: "Хранилищені ашу мүмкін болмады.",
@@ -198,16 +232,35 @@ const messages: Record<Language, Messages> = {
 		tileScaleDescription:
 			"Атаулары бар және жоқ тақташалардың өлшемін өзгертіңіз. Панельдің жиегін сүйреуге де болады.",
 		vaults: "Қоймалар",
-		uploadImage: "Суретті жүктеу",
-		changeImage: "Суретті ауыстыру",
-		removeImage: "Суретті жою",
-		chooseColor: "Түс таңдау",
-		placeholderColorDescription:
-			"Плиткада сурет болса, түстерді қолданғанда оның орнына әріптер көрсетіледі.",
+		chooseImageFile: "Файл таңдау…",
+		removeImage: "Суретті алып тастау",
+		tileImage: "Сурет",
+		appearancePreview: "Алдын ала қарау",
+		initialsHint: "Түс таңдағанда бас әріптер көрсетіледі.",
+		checkingImage: "Сурет тексерілуде…",
+		invalidImage:
+			"Сурет ашылмады. Көлемі 512 КБ-тан аспайтын PNG, JPEG немесе WebP файлын таңдаңыз.",
+		appearanceScopeChanged:
+			"Ортақ баптау режимі өзгерді. Ағымдағы баптауларды өзгерту үшін тақташа көрінісін қайта ашыңыз.",
+		tileAppearance: "Тақташаның көрінісі",
+		tilePresets: "Дайын суреттер",
+		tileInitials: "Бас әріптер",
+		moveVaultEarlier: "Алға жылжыту",
+		moveVaultLater: "Артқа жылжыту",
+		presetNames: {
+			book: "Кітап",
+			briefcase: "Портфель",
+			code: "Код",
+			compass: "Компас",
+			flask: "Колба",
+			home: "Үй",
+			music: "Музыка",
+			spark: "Ұшқын",
+		},
 		placeholderBackground: "Фон",
 		placeholderText: "Мәтін",
-		applyColor: "Қолдану",
-		cancelColor: "Бас тарту",
+		applyAppearance: "Қолдану",
+		cancelAppearance: "Бас тарту",
 		colorNames: {
 			transparent: "Түссіз",
 			white: "Ақ",
@@ -236,10 +289,6 @@ const messages: Record<Language, Messages> = {
 			"Vault Dock баптауларын сақтау мүмкін болмады. Қайталап көріңіз.",
 		settingsLoading:
 			"Vault Dock баптаулары әлі жүктелуде. Қайталап көріңіз.",
-		invalidImage:
-			"Таңдалған суреттің пішімі немесе өлшемі қолдау таппайды.",
-		saveImageFailed:
-			"Қойма суретін жаңарту мүмкін болмады. Қайталап көріңіз.",
 	},
 	be: {
 		mobileSwitchFailed: "Не ўдалося адкрыць сховішча.",
@@ -271,16 +320,35 @@ const messages: Record<Language, Messages> = {
 		tileScaleDescription:
 			"Змяняйце памер плітак з подпісамі і без іх. Можна таксама перацягнуць край панэлі.",
 		vaults: "Сховішчы",
-		uploadImage: "Загрузіць выяву",
-		changeImage: "Змяніць выяву",
-		removeImage: "Выдаліць выяву",
-		chooseColor: "Выбраць колер",
-		placeholderColorDescription:
-			"Калі на плітцы ёсць выява, пасля прымянення колераў яе заменяць ініцыялы.",
+		chooseImageFile: "Выбраць файл…",
+		removeImage: "Прыбраць выяву",
+		tileImage: "Выява",
+		appearancePreview: "Папярэдні прагляд",
+		initialsHint: "Выбар колеру паказвае ініцыялы.",
+		checkingImage: "Праверка выявы…",
+		invalidImage:
+			"Не ўдалося адкрыць выяву. Выберыце файл PNG, JPEG або WebP памерам да 512 КБ.",
+		appearanceScopeChanged:
+			"Рэжым агульных налад змяніўся. Адкрыйце афармленне пліткі зноў, каб змяніць бягучыя налады.",
+		tileAppearance: "Афармленне пліткі",
+		tilePresets: "Гатовыя выявы",
+		tileInitials: "Ініцыялы",
+		moveVaultEarlier: "Перамясціць раней",
+		moveVaultLater: "Перамясціць пазней",
+		presetNames: {
+			book: "Кніга",
+			briefcase: "Партфель",
+			code: "Код",
+			compass: "Компас",
+			flask: "Колба",
+			home: "Дом",
+			music: "Музыка",
+			spark: "Іскра",
+		},
 		placeholderBackground: "Фон",
 		placeholderText: "Тэкст",
-		applyColor: "Прымяніць",
-		cancelColor: "Скасаваць",
+		applyAppearance: "Прымяніць",
+		cancelAppearance: "Скасаваць",
 		colorNames: {
 			transparent: "Без колеру",
 			white: "Белы",
@@ -309,9 +377,6 @@ const messages: Record<Language, Messages> = {
 			"Не ўдалося захаваць налады Vault Dock. Паспрабуйце зноў.",
 		settingsLoading:
 			"Налады Vault Dock яшчэ загружаюцца. Паспрабуйце зноў.",
-		invalidImage: "Фармат або памер выбранай выявы не падтрымліваецца.",
-		saveImageFailed:
-			"Не ўдалося абнавіць выяву сховішча. Паспрабуйце зноў.",
 	},
 	uz: {
 		mobileSwitchFailed: "Omborni ochib bo‘lmadi.",
@@ -343,16 +408,35 @@ const messages: Record<Language, Messages> = {
 		tileScaleDescription:
 			"Nomli va nomsiz plitkalar o‘lchamini sozlang. Panel chetini sudrash ham mumkin.",
 		vaults: "Omborlar",
-		uploadImage: "Rasm yuklash",
-		changeImage: "Rasmni almashtirish",
-		removeImage: "Rasmni o‘chirish",
-		chooseColor: "Rang tanlash",
-		placeholderColorDescription:
-			"Agar plitkada rasm bo‘lsa, ranglarni qo‘llash uni bosh harflar bilan almashtiradi.",
+		chooseImageFile: "Fayl tanlash…",
+		removeImage: "Rasmni olib tashlash",
+		tileImage: "Rasm",
+		appearancePreview: "Oldindan ko‘rish",
+		initialsHint: "Rang tanlansa, bosh harflar ko‘rsatiladi.",
+		checkingImage: "Rasm tekshirilmoqda…",
+		invalidImage:
+			"Rasmni ochib bo‘lmadi. 512 KB gacha bo‘lgan PNG, JPEG yoki WebP faylini tanlang.",
+		appearanceScopeChanged:
+			"Umumiy sozlamalar rejimi o‘zgardi. Joriy sozlamalarni tahrirlash uchun katak ko‘rinishini qayta oching.",
+		tileAppearance: "Katak ko‘rinishi",
+		tilePresets: "Tayyor rasmlar",
+		tileInitials: "Bosh harflar",
+		moveVaultEarlier: "Oldinga siljitish",
+		moveVaultLater: "Orqaga siljitish",
+		presetNames: {
+			book: "Kitob",
+			briefcase: "Portfel",
+			code: "Kod",
+			compass: "Kompas",
+			flask: "Kolba",
+			home: "Uy",
+			music: "Musiqa",
+			spark: "Uchqun",
+		},
 		placeholderBackground: "Fon",
 		placeholderText: "Matn",
-		applyColor: "Qo‘llash",
-		cancelColor: "Bekor qilish",
+		applyAppearance: "Qo‘llash",
+		cancelAppearance: "Bekor qilish",
 		colorNames: {
 			transparent: "Rangsiz",
 			white: "Oq",
@@ -382,10 +466,6 @@ const messages: Record<Language, Messages> = {
 			"Vault Dock sozlamalarini saqlab bo‘lmadi. Qayta urinib ko‘ring.",
 		settingsLoading:
 			"Vault Dock sozlamalari hali yuklanmoqda. Qayta urinib ko‘ring.",
-		invalidImage:
-			"Tanlangan rasm formati yoki hajmi qo‘llab-quvvatlanmaydi.",
-		saveImageFailed:
-			"Ombor rasmini yangilab bo‘lmadi. Qayta urinib ko‘ring.",
 	},
 	zh: {
 		mobileSwitchFailed: "无法打开仓库。",
@@ -415,16 +495,35 @@ const messages: Record<Language, Messages> = {
 		tileScaleDescription:
 			"调整有标签和无标签的磁贴大小。也可以拖动切换栏边缘。",
 		vaults: "仓库",
-		uploadImage: "上传图片",
-		changeImage: "更换图片",
+		chooseImageFile: "选择文件…",
 		removeImage: "移除图片",
-		chooseColor: "选择颜色",
-		placeholderColorDescription:
-			"如果磁贴有图片，应用颜色后将用首字母占位图替换它。",
+		tileImage: "图片",
+		appearancePreview: "预览",
+		initialsHint: "选择颜色会显示首字母。",
+		checkingImage: "正在检查图片…",
+		invalidImage:
+			"无法打开图片。请选择不超过 512 KB 的 PNG、JPEG 或 WebP 文件。",
+		appearanceScopeChanged:
+			"共享设置模式已更改。请重新打开磁贴外观以编辑当前设置。",
+		tileAppearance: "磁贴外观",
+		tilePresets: "预设图片",
+		tileInitials: "首字母",
+		moveVaultEarlier: "向前移动",
+		moveVaultLater: "向后移动",
+		presetNames: {
+			book: "书本",
+			briefcase: "公文包",
+			code: "代码",
+			compass: "指南针",
+			flask: "烧瓶",
+			home: "房屋",
+			music: "音乐",
+			spark: "火花",
+		},
 		placeholderBackground: "背景",
 		placeholderText: "文字",
-		applyColor: "应用",
-		cancelColor: "取消",
+		applyAppearance: "应用",
+		cancelAppearance: "取消",
 		colorNames: {
 			transparent: "无颜色",
 			white: "白色",
@@ -448,8 +547,6 @@ const messages: Record<Language, Messages> = {
 		switchFailed: "在当前窗口状态下无法切换仓库。",
 		saveSettingsFailed: "无法保存 Vault Dock 的设置。请重试。",
 		settingsLoading: "Vault Dock 的设置仍在加载，请稍后重试。",
-		invalidImage: "不支持所选图片的格式，或图片文件过大。",
-		saveImageFailed: "无法更新仓库图标。请重试。",
 	},
 	"zh-TW": {
 		mobileSwitchFailed: "無法開啟儲存庫。",
@@ -479,16 +576,35 @@ const messages: Record<Language, Messages> = {
 		tileScaleDescription:
 			"調整有標籤和無標籤的圖塊大小。也可以拖曳切換列邊緣。",
 		vaults: "儲存庫",
-		uploadImage: "上傳圖片",
-		changeImage: "更換圖片",
+		chooseImageFile: "選擇檔案…",
 		removeImage: "移除圖片",
-		chooseColor: "選擇顏色",
-		placeholderColorDescription:
-			"如果圖塊有圖片，套用顏色後會以首字母預留圖示取代它。",
+		tileImage: "圖片",
+		appearancePreview: "預覽",
+		initialsHint: "選擇顏色會顯示首字母。",
+		checkingImage: "正在檢查圖片…",
+		invalidImage:
+			"無法開啟圖片。請選擇不超過 512 KB 的 PNG、JPEG 或 WebP 檔案。",
+		appearanceScopeChanged:
+			"共用設定模式已變更。請重新開啟磚塊外觀以編輯目前設定。",
+		tileAppearance: "磚塊外觀",
+		tilePresets: "預設圖片",
+		tileInitials: "首字母",
+		moveVaultEarlier: "向前移動",
+		moveVaultLater: "向後移動",
+		presetNames: {
+			book: "書本",
+			briefcase: "公事包",
+			code: "程式碼",
+			compass: "指南針",
+			flask: "燒瓶",
+			home: "房屋",
+			music: "音樂",
+			spark: "火花",
+		},
 		placeholderBackground: "背景",
 		placeholderText: "文字",
-		applyColor: "套用",
-		cancelColor: "取消",
+		applyAppearance: "套用",
+		cancelAppearance: "取消",
 		colorNames: {
 			transparent: "無顏色",
 			white: "白色",
@@ -513,8 +629,6 @@ const messages: Record<Language, Messages> = {
 		switchFailed: "在目前的視窗狀態下無法切換儲存庫。",
 		saveSettingsFailed: "無法儲存 Vault Dock 的設定。請再試一次。",
 		settingsLoading: "Vault Dock 的設定仍在載入，請稍後再試。",
-		invalidImage: "不支援所選圖片的格式，或圖片檔案過大。",
-		saveImageFailed: "無法更新儲存庫圖示。請再試一次。",
 	},
 	ja: {
 		mobileSwitchFailed: "保管庫を開けませんでした。",
@@ -546,16 +660,35 @@ const messages: Record<Language, Messages> = {
 		tileScaleDescription:
 			"ラベルの有無にかかわらずタイルのサイズを調整します。バーの端をドラッグすることもできます。",
 		vaults: "保管庫",
-		uploadImage: "画像をアップロード",
-		changeImage: "画像を変更",
-		removeImage: "画像を削除",
-		chooseColor: "色を選択",
-		placeholderColorDescription:
-			"タイルに画像がある場合、色を適用するとイニシャル表示に切り替わります。",
+		chooseImageFile: "ファイルを選択…",
+		removeImage: "画像を取り除く",
+		tileImage: "画像",
+		appearancePreview: "プレビュー",
+		initialsHint: "色を選ぶとイニシャルが表示されます。",
+		checkingImage: "画像を確認中…",
+		invalidImage:
+			"画像を開けませんでした。512 KB 以下の PNG、JPEG、WebP ファイルを選択してください。",
+		appearanceScopeChanged:
+			"設定の共有モードが変更されました。タイルの外観を開き直して現在の設定を編集してください。",
+		tileAppearance: "タイルの外観",
+		tilePresets: "プリセット画像",
+		tileInitials: "イニシャル",
+		moveVaultEarlier: "前へ移動",
+		moveVaultLater: "後ろへ移動",
+		presetNames: {
+			book: "本",
+			briefcase: "かばん",
+			code: "コード",
+			compass: "コンパス",
+			flask: "フラスコ",
+			home: "家",
+			music: "音楽",
+			spark: "きらめき",
+		},
 		placeholderBackground: "背景",
 		placeholderText: "文字",
-		applyColor: "適用",
-		cancelColor: "キャンセル",
+		applyAppearance: "適用",
+		cancelAppearance: "キャンセル",
 		colorNames: {
 			transparent: "色なし",
 			white: "白",
@@ -583,10 +716,6 @@ const messages: Record<Language, Messages> = {
 			"Vault Dockの設定を保存できませんでした。もう一度お試しください。",
 		settingsLoading:
 			"Vault Dockの設定を読み込み中です。しばらくしてから、もう一度お試しください。",
-		invalidImage:
-			"選択した画像の形式に対応していないか、ファイルサイズが大きすぎます。",
-		saveImageFailed:
-			"保管庫のアイコンを更新できませんでした。もう一度お試しください。",
 	},
 };
 

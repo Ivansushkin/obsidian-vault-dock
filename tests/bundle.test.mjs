@@ -29,6 +29,22 @@ test("the bundle ships the matching mobile-compatible manifest and stylesheet", 
 	}
 });
 
+test("the installed bundle contains eight distinct WebP presets", () => {
+	const bundle = readFileSync("build/main.js", "utf8");
+	const sources = new Set(
+		Array.from(
+			bundle.matchAll(/data:image\/webp;base64,([\w+/=]+)/gu),
+			(match) => match[1],
+		),
+	);
+	assert.equal(sources.size, 8);
+	for (const source of sources) {
+		const image = Buffer.from(source, "base64");
+		assert.equal(image.toString("ascii", 0, 4), "RIFF");
+		assert.equal(image.toString("ascii", 8, 16), "WEBPVP8L");
+	}
+});
+
 test("the mobile bundle uses the native vault list and ignores old manual entries", async () => {
 	const saved = [];
 	const notices = [];

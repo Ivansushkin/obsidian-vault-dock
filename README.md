@@ -24,18 +24,25 @@ the plugin settings.
   bar stays visible when the sidebars are collapsed.
 - Change **Tile size** in the plugin settings or drag the edge of the bar.
   Turn on **Hide vault labels** for square tiles.
-- Right-click a tile to add, change, or remove its image. Tiles without images
-  show the first two characters of the vault name. Use **Choose color** to set
-  their background and text colors. Applying colors replaces the tile’s image
-  with its initials.
+- Right-click a tile and open **Tile appearance**. Preview a ready-made picture,
+  choose or remove an image file, or set colors for the vault’s initials. Select
+  **Apply** to update the tile.
+- Drag tiles to reorder them, or use **Move earlier** and **Move later** in the
+  tile’s menu.
 
 ## Demos
 
-|                                              Switching vaults                                              |                                           Moving the dock                                            |
-| :--------------------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------: |
-|                 ![Switching between vaults from the dock](docs/media/vault-switching.gif)                  |          ![Changing the dock position from its context menu](docs/media/dock-placement.gif)          |
-|                                             **Resizing tiles**                                             |                                       **Adding a tile image**                                        |
-| ![Dragging the dock edge to resize tiles in vertical and horizontal positions](docs/media/tile-resize.gif) | ![Selecting a tile image from the context menu and seeing it on the dock](docs/media/tile-image.gif) |
+|                             Switching vaults                              |                                  Moving the dock                                   |
+| :-----------------------------------------------------------------------: | :--------------------------------------------------------------------------------: |
+| ![Switching between vaults from the dock](docs/media/vault-switching.gif) | ![Changing the dock position from its context menu](docs/media/dock-placement.gif) |
+
+|                                               Resizing tiles                                               |                                 Reordering tiles                                 |
+| :--------------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------: |
+| ![Dragging the dock edge to resize tiles in vertical and horizontal positions](docs/media/tile-resize.gif) | ![Dragging tiles to change their order in the dock](docs/media/tile-reorder.gif) |
+
+**Tile appearance**
+
+![Tile appearance dialog with a live preview, preset images, and color palettes for initials](docs/media/tile-appearance.png)
 
 ## Installation
 
@@ -90,7 +97,7 @@ default. Turn off **Share settings across vaults** to configure them separately.
 Turning it back on makes the current vault’s mode and images the shared settings.
 
 The desktop interface language, bar position, tile size, label visibility,
-and tile colors always apply across the profile.
+tile colors, and tile order always apply across the profile.
 
 ## Local data
 
