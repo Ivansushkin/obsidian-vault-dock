@@ -40,9 +40,10 @@
   the user's explicit permission.
 - When the user authorizes a new branch, base it on the latest available
   `origin/main` and use the `codex/` prefix unless the user specifies otherwise.
-  Set the upstream to the branch's own remote branch when publishing.
 - Create, amend, or rewrite commits only with the user's explicit permission.
-  Push or publish only when the user explicitly requests it.
+- Treat GitHub as read-only. The user handles all writes, including pushes,
+  creating branches and tags, opening pull requests, and publishing releases
+  and their assets. A release request authorizes local preparation only.
 
 ## Obsidian and security
 
