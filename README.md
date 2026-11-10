@@ -101,12 +101,15 @@ tile colors, and tile order always apply across the profile.
 
 ## Local data
 
-Vault Dock uses Obsidian's desktop vault registry to read the IDs and paths of
-registered vaults and open their windows. When you choose a tile image, the
-plugin reads that file, which can be outside your vaults. It stores a copy of
-the image and the dock settings in the local Obsidian profile. On mobile it
-saves appearance settings in each vault’s plugin data. The automatically
-discovered list stays in memory. The plugin runs offline.
+On desktop, Vault Dock uses Obsidian's internal Electron IPC to read vault IDs
+and paths and to open or focus registered vaults. It uses Electron APIs to
+manage their windows. When you select a vault in Obsidian's built-in switcher,
+Vault Dock intercepts the open request to apply the selected switching mode.
+
+When you choose a tile image, the plugin reads that file, which can be outside
+your vaults. It stores a copy of the image and the dock settings in the local
+Obsidian profile. On mobile it saves appearance settings in each vault’s plugin
+data. The automatically discovered list stays in memory. The plugin runs offline.
 
 ## Development
 

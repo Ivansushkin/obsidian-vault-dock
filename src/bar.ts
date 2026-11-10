@@ -139,8 +139,7 @@ export class Bar {
 		private readonly onChangePosition: (position: BarPosition) => void,
 		private readonly onChangeHideLabels: (hideLabels: boolean) => void,
 	) {
-		this.element = document.createElement("div");
-		this.element.className = "vault-dock";
+		this.element = document.adoptNode(createDiv("vault-dock"));
 		this.tiles = this.element.createDiv("vault-dock-tiles");
 		this.tiles.setAttribute("role", "group");
 		this.resize = new BarResize(this.element, saveScale);
@@ -302,7 +301,7 @@ export class Bar {
 		const { inlineSize: width, blockSize: height } = size;
 		const crop = Math.min(image.naturalWidth, image.naturalHeight);
 		if (crop > Math.max(width, height)) {
-			const canvas = element.ownerDocument.createElement("canvas");
+			const canvas = element.ownerDocument.adoptNode(createEl("canvas"));
 			canvas.width = width;
 			canvas.height = height;
 			canvas.setAttribute("aria-hidden", "true");

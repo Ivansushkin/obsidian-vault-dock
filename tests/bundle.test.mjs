@@ -95,6 +95,10 @@ test("the mobile bundle uses the native vault list and ignores old manual entrie
 		body: {},
 		defaultView: win,
 		querySelector: () => header,
+		adoptNode(node) {
+			node.ownerDocument = this;
+			return node;
+		},
 	};
 	const element = (parent) => ({
 		classList: { toggle() {} },
@@ -126,7 +130,6 @@ test("the mobile bundle uses the native vault list and ignores old manual entrie
 		remove() {},
 		parent,
 	});
-	document.createElement = element;
 	class Plugin {
 		app = {
 			workspace: {
@@ -165,6 +168,7 @@ test("the mobile bundle uses the native vault list and ignores old manual entrie
 	runInNewContext(readFileSync("build/main.js", "utf8"), {
 		module,
 		exports: module.exports,
+		createDiv: (className) => ({ ...element(), className }),
 		Event,
 		MutationObserver,
 		require(id) {
@@ -186,6 +190,7 @@ test("the mobile bundle uses the native vault list and ignores old manual entrie
 	const plugin = new module.exports.default();
 	await plugin.onload();
 	assert.deepEqual(notices, []);
+	assert.equal(header.nextElementSibling.ownerDocument, document);
 	assert.equal(
 		header.nextElementSibling.className,
 		"vault-dock vault-dock-mobile",

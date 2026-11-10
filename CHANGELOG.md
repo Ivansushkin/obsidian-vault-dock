@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.1
+
+- Use Obsidian's DOM helpers for the desktop and mobile docks.
+- Document how Vault Dock uses Obsidian and Electron APIs on desktop.
+
 ## 1.1.0
 
 - Reorder desktop tiles by dragging them or using **Move earlier** and
