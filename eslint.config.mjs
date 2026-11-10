@@ -9,6 +9,7 @@ export default tseslint.config(
 	{
 		files: ["src/**/*.ts"],
 		languageOptions: {
+			globals: { createDiv: "readonly", createEl: "readonly" },
 			parserOptions: {
 				projectService: true,
 				tsconfigRootDir: import.meta.dirname,

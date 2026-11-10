@@ -21,8 +21,7 @@ export async function startMobileDock(plugin: Plugin): Promise<void> {
 	const { workspace } = plugin.app;
 	const doc = workspace.containerEl.ownerDocument;
 	let disposed = false;
-	const dock = doc.createElement("div");
-	dock.className = "vault-dock vault-dock-mobile";
+	const dock = doc.adoptNode(createDiv("vault-dock vault-dock-mobile"));
 	const row = dock.createDiv("vault-dock-tiles");
 	row.setAttribute("role", "group");
 	let header: Element | null = null;

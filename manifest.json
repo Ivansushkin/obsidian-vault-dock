@@ -1,7 +1,7 @@
 {
 	"id": "vault-dock",
 	"name": "Vault Dock",
-	"version": "1.1.0",
+	"version": "1.1.1",
 	"minAppVersion": "1.15.0",
 	"description": "Open and switch between registered vaults from a customizable dock.",
 	"author": "Ivan Sushkin",
