@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.1.0
+
+- Reorder desktop tiles by dragging them or using **Move earlier** and
+  **Move later** in the tile menu. The order is shared across windows and
+  persists after a restart.
+- Open **Tile appearance** to preview eight built-in pictures, choose or remove
+  an image file, or set the colors of the vault initials. **Apply** saves the
+  displayed appearance.
+- Scroll the whole appearance dialog in short windows to reach the controls
+  and the **Apply** button.
+- Added a reordering demo and a screenshot of the appearance dialog to both
+  READMEs.
+
 ## 1.0.0
 
 - Added a mobile dock for iOS and Android that automatically follows

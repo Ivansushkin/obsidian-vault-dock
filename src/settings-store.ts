@@ -14,6 +14,7 @@ import {
 	type SwitchingMode,
 } from "./switching-mode";
 import { DEFAULT_TILE_SCALE, isTileScale } from "./tile-scale";
+import { applyVaultMove, type VaultMove } from "./vault-order";
 
 // Keep the original database and channel so existing vault settings stay accessible.
 const DATABASE = "vault-switcher-bar";
@@ -25,6 +26,7 @@ const SCOPE_KEY = "scope";
 const COMMON_MODE_KEY = "common-mode";
 const PICTURE_REVISION_KEY = "picture-revision";
 const PLACEHOLDER_COLOR_KEY = "placeholder-colors";
+const VAULT_ORDER_KEY = "vault-order";
 const CHANGE_MESSAGE = "settings-changed";
 const LEGACY_BAR_POSITION_KEY = "bar-at-bottom";
 const PROFILE_SETTING_KEYS = {
@@ -34,8 +36,7 @@ const PROFILE_SETTING_KEYS = {
 	tileScale: "tile-scale",
 };
 
-export const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"];
-export const MAX_IMAGE_SIZE = 512 * 1024;
+export class SettingsScopeChangedError extends Error {}
 
 type Scope = { shared: boolean; scopeRevision: number };
 type LocalImage = { vaultId: string; tileId: string; image: Blob };
@@ -67,6 +68,7 @@ export type SettingsSnapshot = Scope &
 		mode: SwitchingMode;
 		pictures: Map<string, Blob>;
 		placeholderColors: Map<string, PlaceholderColors>;
+		vaultOrder: readonly string[];
 	};
 
 function result<T>(request: IDBRequest<T>): Promise<T> {
@@ -86,6 +88,15 @@ async function readPictureRevision(
 ): Promise<number> {
 	const value: unknown = await result(settings.get(key));
 	return typeof value === "number" ? value : 0;
+}
+
+async function readVaultOrder(settings: IDBObjectStore): Promise<string[]> {
+	const value: unknown = await result(settings.get(VAULT_ORDER_KEY));
+	return Array.isArray(value)
+		? value.filter(
+				(id): id is string => typeof id === "string" && id.length > 0,
+			)
+		: [];
 }
 
 /** Persist and coordinate common and vault-specific settings in one profile. */
@@ -209,7 +220,7 @@ export class SettingsStore {
 					: 0,
 		};
 		if (expected !== undefined && scope.scopeRevision !== expected) {
-			throw new Error("Settings scope changed");
+			throw new SettingsScopeChangedError("Settings scope changed");
 		}
 		return scope;
 	}
@@ -344,6 +355,7 @@ export class SettingsStore {
 				barPosition,
 				tileScale,
 				placeholderColors,
+				vaultOrder,
 			] = await Promise.all([
 				scope.shared
 					? this.commonMode(stores)
@@ -359,6 +371,7 @@ export class SettingsStore {
 					stores.settings.get(PROFILE_SETTING_KEYS.tileScale),
 				),
 				this.readPlaceholderColors(stores.settings, ids),
+				readVaultOrder(stores.settings),
 			]);
 			const cache = await this.readPictures(
 				stores,
@@ -377,6 +390,7 @@ export class SettingsStore {
 					: DEFAULT_TILE_SCALE,
 				pictures: cache.pictures,
 				placeholderColors,
+				vaultOrder,
 			};
 			return { snapshot, cache };
 		});
@@ -393,6 +407,24 @@ export class SettingsStore {
 			settings.put(value, PROFILE_SETTING_KEYS[key]);
 		});
 		this.notify();
+	}
+
+	/** Apply a relative move to the latest profile order within the write transaction. */
+	async moveVault(
+		move: VaultMove,
+		registered: readonly string[],
+	): Promise<void> {
+		const changed = await this.transact(async ({ settings }) => {
+			const saved = await readVaultOrder(settings);
+			const next = applyVaultMove(registered, saved, move);
+			if (next) {
+				settings.put(next, VAULT_ORDER_KEY);
+			}
+			return next !== undefined;
+		});
+		if (changed) {
+			this.notify();
+		}
 	}
 
 	async setShared(shared: boolean, scopeRevision: number): Promise<void> {

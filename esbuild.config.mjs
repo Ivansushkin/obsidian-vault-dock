@@ -129,6 +129,7 @@ const options = {
 	format: "cjs",
 	platform: "browser",
 	target: "es2022",
+	loader: { ".webp": "dataurl" },
 	external: ["obsidian", "electron"],
 	logLevel: "info",
 	minify: !values.watch,

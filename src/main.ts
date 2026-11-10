@@ -50,6 +50,7 @@ export default class ObsidianVaultDockPlugin extends Plugin {
 				activeId,
 				settings?.pictures ?? emptyPictures,
 				settings?.placeholderColors,
+				settings?.vaultOrder,
 			);
 		const refreshSettings = async () => {
 			const revision = ++readRevision;
@@ -73,6 +74,12 @@ export default class ObsidianVaultDockPlugin extends Plugin {
 				(settings?.barPosition ?? DEFAULT_BAR_POSITION) !==
 				next.barPosition;
 			const picturesChanged = settings?.pictures !== next.pictures;
+			const previousOrder = settings?.vaultOrder;
+			const orderChanged =
+				previousOrder?.length !== next.vaultOrder.length ||
+				next.vaultOrder.some(
+					(id, index) => id !== previousOrder[index],
+				);
 			const previousColors = settings?.placeholderColors;
 			const colorsChanged =
 				previousColors?.size !== next.placeholderColors.size ||
@@ -112,7 +119,7 @@ export default class ObsidianVaultDockPlugin extends Plugin {
 			if (changed) {
 				settingsTab.update();
 			}
-			if (picturesChanged || colorsChanged) {
+			if (picturesChanged || colorsChanged || orderChanged) {
 				render();
 			}
 			if (positionChanged && workspace.layoutReady) {
@@ -173,6 +180,13 @@ export default class ObsidianVaultDockPlugin extends Plugin {
 			container.ownerDocument,
 			this.app,
 			(id) => void select(id),
+			async (move) => {
+				await store.moveVault(
+					move,
+					desktop.list().map(({ id }) => id),
+				);
+				await refreshSettings();
+			},
 			() => settings?.scopeRevision,
 			async (id, file, scopeRevision) => {
 				await store.save(id, file, scopeRevision);
